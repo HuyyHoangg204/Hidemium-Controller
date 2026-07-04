@@ -1,0 +1,15 @@
+serverAddr = "127.0.0.1"
+serverPort = 7000
+
+auth.method = "token"
+auth.token = "hidemium2024secret"
+
+log.to = "console"
+log.level = "info"
+
+[[proxies]]
+name = "hidemium-api"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 5000
+remotePort = 8080

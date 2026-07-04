@@ -1,0 +1,1112 @@
+<!-- TAB: VEO ACCOUNTS MANAGEMENTS -->
+<div x-cloak x-show="activeMenu === 'veo_accounts' && isAdmin" class="space-y-6 w-full">
+    <!-- Header -->
+    <!-- <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <div>
+            <h2 class="text-xl font-bold">Quản Lý Nhóm Chứng Chỉ</h2>
+            <p class="text-sm text-slate-500 mt-1 hidden sm:block">Quản lý tài khoản Google &amp; Proxy cho hệ thống AI
+                Video. Hệ thống tự bốc ngẫu nhiên 1 tài khoản <span class="text-emerald-500 font-bold">Hoạt động</span>
+                khi Dev tạo Video mà không cấu hình riêng.</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <button @click="checkAllCredits" :disabled="checkingCredits"
+                class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm disabled:opacity-50">
+                <i class="fa-solid fa-coins"
+                    :class="checkingCredits ? 'fa-spin text-amber-500' : 'text-emerald-500'"></i>
+                <span x-text="checkingCredits ? 'Đang check...' : 'Check Credits'"></span>
+            </button>
+            <button @click="checkAllCookieHealth" :disabled="checkingHealth"
+                class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm disabled:opacity-50">
+                <i class="fa-solid fa-shield-halved"
+                    :class="checkingHealth ? 'fa-spin text-amber-500' : 'text-indigo-500'"></i>
+                <span x-text="checkingHealth ? 'Đang kiểm tra...' : 'Kiểm tra'"></span>
+            </button>
+            <button @click="openVeoAccountCreateModal"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg shadow-lg font-medium transition-colors flex items-center gap-2 text-sm">
+                <i class="fa-solid fa-plus"></i>
+                <span class="hidden sm:inline">Thêm Bản Ghi Mới</span>
+                <span class="sm:hidden">Thêm</span>
+            </button>
+        </div>
+    </div> -->
+
+    <!-- ⚡ QUEUE SETTINGS PANEL -->
+    <div class="glass-panel rounded-xl overflow-hidden border border-indigo-200 shadow-xl"
+        x-data="{ editingVeo: false, editingGrok: false, veoVal: 0, grokVal: 0 }"
+        x-init="$nextTick(() => { loadQueueSettings(); })">
+
+        <div class="p-4 flex items-center gap-6 flex-wrap">
+            <!-- Title -->
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-server text-indigo-500 text-lg"></i>
+                <h3 class="text-base font-bold text-slate-800">Điều Khiển Luồng</h3>
+            </div>
+
+            <!-- Veo Concurrent -->
+            <div class="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                <span class="text-xs font-bold text-blue-700 whitespace-nowrap">🔥 Veo:</span>
+                <template x-if="!editingVeo">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-lg font-black text-blue-800" x-text="queueStats.max_concurrent || 0"></span>
+                        <span class="text-[10px] text-blue-500">luồng</span>
+                        <button
+                            @click="editingVeo = true; veoVal = queueStats.max_concurrent || 10; $nextTick(() => $refs.veoInput?.focus())"
+                            class="text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded p-1 transition-colors ml-1"
+                            title="Chỉnh số luồng">
+                            <i class="fa-solid fa-pen text-[10px]"></i>
+                        </button>
+                    </div>
+                </template>
+                <template x-if="editingVeo">
+                    <div class="flex items-center gap-1">
+                        <input x-ref="veoInput" type="number" min="1" max="50" x-model.number="veoVal"
+                            @keydown.enter.prevent="updateQueueMax(veoVal); editingVeo = false;"
+                            @keydown.escape="editingVeo = false"
+                            class="w-16 text-center text-sm font-bold px-2 py-1 border border-blue-400 rounded focus:ring-2 focus:ring-blue-400 outline-none bg-white">
+                        <button @click="updateQueueMax(veoVal); editingVeo = false;"
+                            class="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded hover:bg-blue-700 transition-colors">
+                            <i class="fa-solid fa-check"></i>
+                        </button>
+                        <button @click="editingVeo = false"
+                            class="text-slate-400 hover:text-slate-600 text-[10px] px-1.5 py-1 rounded hover:bg-slate-100 transition-colors">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Grok Concurrent -->
+
+            <!-- Queue Stats (read-only) -->
+            <div class="flex items-center gap-3 ml-auto">
+                <div class="flex items-center gap-1.5 text-xs">
+                    <span class="text-slate-500">Pending:</span>
+                    <span class="font-bold text-amber-600" x-text="queueStats.queue_pending || 0"></span>
+                </div>
+                <div class="flex items-center gap-1.5 text-xs">
+                    <span class="text-slate-500">Workers:</span>
+                    <span class="font-bold text-emerald-600" x-text="queueStats.active_workers || 0"></span>
+                </div>
+                <div class="flex items-center gap-1.5 text-xs">
+                    <span class="text-slate-500">Accounts:</span>
+                    <span class="font-bold text-blue-600" x-text="veoAccounts.filter(a => a.is_active).length"></span>
+                    <span class="text-slate-400">/ <span x-text="veoAccounts.length"></span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔑 KIOTPROXY POOL — N KEY / M ACCOUNT PER KEY -->
+    <div class="glass-panel rounded-xl overflow-hidden border border-indigo-200 shadow-xl p-5 space-y-3 w-full"
+        x-data="kiotProxyPoolPanel()" x-init="loadPool(); setInterval(() => loadPool(), 30000)">
+
+        <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-key text-indigo-500 text-lg"></i>
+                <h3 class="text-base font-bold text-slate-800">KiotProxy Pool</h3>
+                <template x-if="!loading && status">
+                    <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">
+                        <span x-text="status.keys_count + ' key'"></span> ·
+                        <span x-text="'M=' + status.accounts_per_key"></span> ·
+                        <span x-text="status.total_active_accounts + ' acc'"></span>
+                    </span>
+                </template>
+                <template x-if="loading">
+                    <span class="text-[11px] text-slate-400"><i class="fa-solid fa-spinner fa-spin text-[9px]"></i> Đang tải...</span>
+                </template>
+            </div>
+            <div class="flex items-center gap-2">
+                <button @click="forceRefresh()" :disabled="refreshing || saving"
+                    class="bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-300 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5 text-xs disabled:opacity-40">
+                    <i class="fa-solid" :class="refreshing ? 'fa-spinner fa-spin' : 'fa-rotate'"></i>
+                    <span x-text="refreshing ? 'Đang refresh...' : 'Force Refresh'"></span>
+                </button>
+            </div>
+        </div>
+
+        <p class="text-xs text-slate-500">
+            Nhập N key API KiotProxy — mỗi dòng 1 key — hoặc upload file .txt. Cấu hình
+            <b>M account/key</b>: account được sort theo tên, account thứ 1..M dùng key 1,
+            M+1..2M dùng key 2, ... Account dư chạy direct (không proxy).
+        </p>
+
+        <!-- Textarea + Import + M + Region -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <!-- Keys textarea (span 2) -->
+            <div class="lg:col-span-2 flex flex-col gap-2">
+                <label class="text-[11px] font-bold text-slate-600 flex items-center justify-between">
+                    <span>API Keys (mỗi dòng 1 key)</span>
+                    <span class="text-slate-400" x-text="(keysText.split('\n').filter(l => l.trim()).length) + ' key'"></span>
+                </label>
+                <textarea x-model="keysText" rows="5" spellcheck="false"
+                    class="bg-white border border-slate-300 outline-none p-2.5 rounded-lg font-mono text-xs text-slate-900 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition-all resize-y"
+                    placeholder="K98ce716...bbc89&#10;K4bb685...c24c47&#10;..."></textarea>
+                <div class="flex items-center gap-2">
+                    <label class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-2 text-xs cursor-pointer">
+                        <i class="fa-solid fa-file-arrow-up"></i>
+                        Import .txt
+                        <input type="file" accept=".txt,text/plain" @change="importTxt($event)" class="hidden">
+                    </label>
+                    <button @click="keysText = ''" class="text-xs text-red-500 hover:text-red-700 px-2 py-1">
+                        <i class="fa-solid fa-broom"></i> Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- M + Region + Save -->
+            <div class="flex flex-col gap-2">
+                <label class="text-[11px] font-bold text-slate-600">Số account / 1 key (M)</label>
+                <input type="number" x-model.number="accountsPerKey" min="1" max="200"
+                    class="bg-white border border-slate-300 outline-none p-2.5 rounded-lg text-sm font-bold text-slate-900 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 transition-all">
+
+                <label class="text-[11px] font-bold text-slate-600 mt-1">Region</label>
+                <select x-model="region"
+                    class="bg-white border border-slate-300 p-2.5 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-indigo-400 outline-none cursor-pointer">
+                    <option value="random">🌐 Random</option>
+                    <option value="bac">🔵 Bắc</option>
+                    <option value="trung">🟡 Trung</option>
+                    <option value="nam">🔴 Nam</option>
+                </select>
+
+                <button @click="savePool()" :disabled="saving"
+                    class="mt-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50">
+                    <i class="fa-solid" :class="saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i>
+                    <span x-text="saving ? 'Đang lưu & fetch...' : 'Lưu & Fetch ngay'"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mapping summary -->
+        <template x-if="status && status.unassigned_accounts && status.unassigned_accounts.length > 0">
+            <div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg px-3 py-2">
+                ⚠️ Có <b x-text="status.unassigned_accounts.length"></b> account dư không có key
+                (pool chỉ có <b x-text="status.keys_count + ' × ' + status.accounts_per_key + ' = ' + status.max_slots"></b> slot).
+                Các account này sẽ chạy <b>direct</b> (không proxy):
+                <span class="font-mono text-[11px]" x-text="status.unassigned_accounts.slice(0,5).join(', ') + (status.unassigned_accounts.length > 5 ? ' ...' : '')"></span>
+            </div>
+        </template>
+
+        <!-- Excluded accounts (user đã bỏ khỏi pool) -->
+        <template x-if="status && status.excluded_accounts && status.excluded_accounts.length > 0">
+            <div class="bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-lg px-3 py-2">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <i class="fa-solid fa-user-slash text-rose-500"></i>
+                    <b x-text="'Đã bỏ khỏi pool: ' + status.excluded_accounts.length + ' account'"></b>
+                    <span class="text-rose-600">(chạy direct, không dùng KiotProxy)</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                    <template x-for="nm in status.excluded_accounts" :key="nm">
+                        <span class="inline-flex items-center gap-1 bg-white text-rose-700 font-mono text-[10px] font-semibold pl-2 pr-0.5 py-0.5 rounded border border-rose-200">
+                            <span x-text="nm"></span>
+                            <button @click="includeAccount(nm)" :disabled="togglingAccount === nm"
+                                class="inline-flex items-center justify-center w-4 h-4 rounded hover:bg-emerald-100 text-rose-400 hover:text-emerald-700 transition-colors disabled:opacity-40"
+                                title="Thêm account trở lại pool">
+                                <i class="fa-solid fa-rotate-left text-[9px]"></i>
+                            </button>
+                        </span>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- Pool status table -->
+        <template x-if="status && status.items && status.items.length > 0">
+            <div class="overflow-x-auto bg-white rounded-lg border border-slate-200 mt-2">
+                <table class="w-full text-xs text-left">
+                    <thead class="text-[10px] text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="px-3 py-2" style="width:10%">Key</th>
+                            <th class="px-3 py-2" style="width:18%">Proxy hiện tại</th>
+                            <th class="px-3 py-2" style="width:14%">Location</th>
+                            <th class="px-3 py-2 text-center" style="width:8%">TTC</th>
+                            <th class="px-3 py-2 text-center" style="width:10%">Đã fetch</th>
+                            <th class="px-3 py-2" style="width:40%">Account đang gán</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(it, idx) in status.items" :key="idx">
+                            <tr class="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                                <td class="px-3 py-2">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold flex items-center justify-center" x-text="idx + 1"></span>
+                                        <span class="font-mono text-[10px] text-slate-500" x-text="it.key_preview"></span>
+                                    </div>
+                                </td>
+                                <td class="px-3 py-2">
+                                    <template x-if="it.http">
+                                        <span class="font-mono font-bold text-slate-800 text-[11px]" x-text="it.http"></span>
+                                    </template>
+                                    <template x-if="!it.http && it.error">
+                                        <span class="text-red-500 text-[10px]" x-text="it.error"></span>
+                                    </template>
+                                    <template x-if="!it.http && !it.error">
+                                        <span class="text-slate-400 italic text-[10px]">— chưa fetch</span>
+                                    </template>
+                                </td>
+                                <td class="px-3 py-2">
+                                    <span class="text-slate-600" x-text="it.location || '—'"></span>
+                                </td>
+                                <td class="px-3 py-2 text-center">
+                                    <template x-if="it.http">
+                                        <span class="font-mono text-[10px] font-bold"
+                                            :class="it.ttc_left > 0 ? 'text-amber-600' : 'text-emerald-600'"
+                                            x-text="it.ttc_left > 0 ? it.ttc_left + 's' : 'Sẵn sàng'"></span>
+                                    </template>
+                                    <template x-if="!it.http">
+                                        <span class="text-slate-300">—</span>
+                                    </template>
+                                </td>
+                                <td class="px-3 py-2 text-center">
+                                    <span class="text-[10px] text-slate-500" x-text="it.fetched_at ? new Date(it.fetched_at * 1000).toLocaleTimeString() : '—'"></span>
+                                </td>
+                                <td class="px-3 py-2">
+                                    <template x-if="it.assigned_accounts.length > 0">
+                                        <div class="flex items-center flex-wrap gap-1">
+                                            <template x-for="nm in it.assigned_accounts" :key="nm">
+                                                <span class="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 font-mono text-[10px] font-semibold pl-1.5 pr-0.5 py-0.5 rounded border border-indigo-100">
+                                                    <span x-text="nm"></span>
+                                                    <button @click="excludeAccount(nm)" :disabled="togglingAccount === nm"
+                                                        class="inline-flex items-center justify-center w-4 h-4 rounded hover:bg-red-100 text-slate-400 hover:text-red-600 transition-colors disabled:opacity-40"
+                                                        title="Bỏ account khỏi pool — account này sẽ chạy direct (không proxy)">
+                                                        <i class="fa-solid fa-xmark text-[9px]"></i>
+                                                    </button>
+                                                </span>
+                                            </template>
+                                            <span class="text-[10px] text-slate-400" x-text="'(' + it.assigned_count + '/' + status.accounts_per_key + ')'"></span>
+                                        </div>
+                                    </template>
+                                    <template x-if="it.assigned_accounts.length === 0">
+                                        <span class="text-[10px] text-slate-400 italic">— chưa có account</span>
+                                    </template>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </template>
+    </div>
+
+    <!-- 🤖 NANOAI UPSCALE TOKEN -->
+    <div class="glass-panel rounded-xl overflow-hidden border border-teal-200 shadow-xl w-full"
+        x-data="{
+            nanoOpen: false,
+            nanoToken: '',
+            saving: false,
+            loading: true,
+            async loadToken() {
+                this.loading = true;
+                try {
+                    const _app = Alpine.$data($root);
+                    const data = await _app.apiCall('/admin/settings/nanoai-token');
+                    this.nanoToken = data.nanoai_token || '';
+                } catch(e) { console.error('[NanoAI] load failed', e); }
+                this.loading = false;
+            },
+            async saveToken() {
+                this.saving = true;
+                const _app = Alpine.$data($root);
+                try {
+                    const resp = await _app.apiCall('/admin/settings/nanoai-token', 'PUT', {
+                        nanoai_token: this.nanoToken.trim()
+                    });
+                    _app.showToast('✅ ' + (resp.message || 'Đã lưu!'), 'success');
+                } catch(e) { _app.showToast('❌ ' + e.message, 'error'); }
+                this.saving = false;
+            }
+        }"
+        x-init="loadToken()">
+
+        <div @click="nanoOpen = !nanoOpen"
+            class="cursor-pointer group flex items-center justify-between p-4 hover:bg-teal-50/50 transition-colors">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles text-teal-500 text-lg group-hover:scale-110 transition-transform"></i>
+                <h3 class="text-base font-bold text-slate-800 group-hover:text-teal-700 transition-colors">NanoAI Upscale Token</h3>
+                <template x-if="!loading && nanoToken">
+                    <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-teal-100 text-teal-700">
+                        <i class="fa-solid fa-circle-check text-[8px]"></i> Đã cấu hình
+                    </span>
+                </template>
+                <template x-if="!loading && !nanoToken">
+                    <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">
+                        Chưa cấu hình
+                    </span>
+                </template>
+                <template x-if="loading">
+                    <span class="text-[11px] text-slate-400"><i class="fa-solid fa-spinner fa-spin text-[9px]"></i> Đang tải...</span>
+                </template>
+            </div>
+            <div class="flex items-center justify-center w-8 h-8 rounded-full bg-teal-50 text-teal-500 group-hover:bg-teal-100 transition-colors shrink-0">
+                <i class="fa-solid transition-transform duration-300"
+                    :class="nanoOpen ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+            </div>
+        </div>
+
+        <div x-show="nanoOpen" x-transition class="px-5 pb-5">
+            <p class="text-xs text-slate-500 mb-4">
+                Token API NanoAI dùng làm <b>fallback</b> khi Google Upscale 4K thất bại.
+                Chỉ áp dụng cho task có <code class="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-mono">upsample_resolution: "4K"</code>.
+            </p>
+
+            <div class="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+                <div class="flex-1 w-full">
+                    <label class="text-[11px] font-bold text-slate-600 block mb-2">API Token</label>
+                    <input type="text" x-model="nanoToken" spellcheck="false"
+                        class="w-full bg-white border border-slate-300 outline-none px-3 py-2.5 rounded-lg font-mono text-xs text-slate-900 focus:ring-2 focus:ring-teal-400 focus:border-teal-400 transition-all"
+                        placeholder="nano_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                </div>
+                <button @click="saveToken()" :disabled="saving"
+                    class="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm disabled:opacity-50 whitespace-nowrap shrink-0">
+                    <i class="fa-solid" :class="saving ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i>
+                    <span style="color: black;" x-text="saving ? 'Đang lưu...' : 'Lưu Token'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🚫 QUẢN LÝ BLACKLIST (Accounts đã xoá) -->
+    <div x-data="{
+            blOpen: false,
+            blList: [],
+            blSelected: [],
+            blLoading: false,
+            blClearing: false,
+            blRestoring: false,
+            blRestoringName: null,
+            async loadBlacklist() {
+                this.blLoading = true;
+                try {
+                    const _app = Alpine.$data($root);
+                    const data = await _app.apiCall('/veo/accounts/deleted-blacklist');
+                    this.blList = data.deleted_accounts || [];
+                } catch(e) { this.blList = []; }
+                this.blSelected = [];
+                this.blLoading = false;
+            },
+            async clearAll() {
+                if (!confirm('Xoá toàn bộ blacklist (' + this.blList.length + ' accounts)? Extension sẽ tự tạo lại.')) return;
+                this.blClearing = true;
+                const _app = Alpine.$data($root);
+                try {
+                    const res = await _app.apiCall('/veo/accounts/deleted-blacklist/clear', 'POST');
+                    _app.showToast('✅ ' + (res.message || 'Đã xoá blacklist'), 'success');
+                    this.blList = [];
+                    this.blSelected = [];
+                    _app.loadVeoAccounts();
+                } catch(e) { _app.showToast('❌ ' + e.message, 'error'); }
+                this.blClearing = false;
+            },
+            async restoreSelected() {
+                if (this.blSelected.length === 0) return;
+                if (!confirm('Gỡ ' + this.blSelected.length + ' accounts khỏi blacklist?')) return;
+                this.blRestoring = true;
+                const _app = Alpine.$data($root);
+                try {
+                    await _app.apiCall('/veo/accounts/deleted-blacklist/restore', 'POST', { names: this.blSelected });
+                    _app.showToast('✅ Đã gỡ ' + this.blSelected.length + ' accounts khỏi blacklist', 'success');
+                    this.blList = this.blList.filter(n => !this.blSelected.includes(n));
+                    this.blSelected = [];
+                    _app.loadVeoAccounts();
+                } catch(e) { _app.showToast('❌ ' + e.message, 'error'); }
+                this.blRestoring = false;
+            },
+            async restoreOne(name) {
+                this.blRestoringName = name;
+                const _app = Alpine.$data($root);
+                try {
+                    await _app.apiCall('/veo/accounts/deleted-blacklist/restore', 'POST', { names: [name] });
+                    this.blList = this.blList.filter(n => n !== name);
+                    this.blSelected = this.blSelected.filter(n => n !== name);
+                    _app.showToast('✅ Đã gỡ ' + name + ' khỏi blacklist', 'success');
+                } catch(e) { _app.showToast('❌ ' + e.message, 'error'); }
+                this.blRestoringName = null;
+            },
+            toggleSelect(name) {
+                if (this.blSelected.includes(name)) {
+                    this.blSelected = this.blSelected.filter(n => n !== name);
+                } else {
+                    this.blSelected.push(name);
+                }
+            },
+            toggleAll() {
+                if (this.blSelected.length === this.blList.length) {
+                    this.blSelected = [];
+                } else {
+                    this.blSelected = [...this.blList];
+                }
+            }
+        }" class="glass-panel rounded-xl overflow-hidden border border-orange-200 shadow-xl w-full">
+
+        <div @click="blOpen = !blOpen; if(blOpen && blList.length === 0) loadBlacklist()"
+            class="cursor-pointer group flex items-center justify-between p-4 hover:bg-orange-50/50 transition-colors">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-ban text-orange-500 text-lg group-hover:scale-110 transition-transform"></i>
+                <h3 class="text-base font-bold text-slate-800 group-hover:text-orange-700 transition-colors">
+                    Danh Sách Blacklist (Accounts Đã Xoá)
+                </h3>
+            </div>
+            <div class="flex items-center gap-3">
+                <button @click.stop="clearAll()" :disabled="blClearing || blList.length === 0"
+                    class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5 disabled:opacity-50 shadow-sm">
+                    <i class="fa-solid" :class="blClearing ? 'fa-circle-notch fa-spin' : 'fa-trash-can'"
+                        style="font-size:10px"></i>
+                    <span x-text="blClearing ? 'Đang xoá...' : 'Xoá Toàn Bộ Blacklist'"></span>
+                </button>
+                <div
+                    class="flex items-center justify-center w-8 h-8 rounded-full bg-orange-50 text-orange-500 group-hover:bg-orange-100 transition-colors shrink-0">
+                    <i class="fa-solid transition-transform duration-300"
+                        :class="blOpen ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="blOpen" x-transition class="px-5 pb-5">
+            <template x-if="blLoading">
+                <div class="text-center py-4 text-slate-400 text-sm">
+                    <i class="fa-solid fa-spinner fa-spin mr-2"></i>Đang tải...
+                </div>
+            </template>
+            <template x-if="!blLoading && blList.length === 0">
+                <div class="text-center py-4 text-emerald-600 text-sm font-medium">
+                    <i class="fa-solid fa-circle-check mr-1"></i> Blacklist trống — không có account nào bị chặn
+                </div>
+            </template>
+            <template x-if="!blLoading && blList.length > 0">
+                <div>
+                    <p class="text-xs text-orange-700 mb-3">
+                        ⚠ Các account dưới đây đã bị xoá thủ công. Extension sẽ <b>KHÔNG</b> tự tạo lại cho đến khi bạn
+                        gỡ khỏi blacklist.
+                    </p>
+
+                    <!-- Bulk action bar -->
+                    <div
+                        class="flex items-center gap-3 mb-3 bg-orange-50 border border-orange-200 rounded-lg px-4 py-2.5">
+                        <label class="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" @change="toggleAll()"
+                                :checked="blSelected.length === blList.length && blList.length > 0"
+                                :indeterminate="blSelected.length > 0 && blSelected.length < blList.length"
+                                class="w-4 h-4 rounded border-orange-300 text-orange-600 focus:ring-orange-400 accent-orange-600">
+                            <span class="text-xs font-bold text-orange-800"
+                                x-text="blSelected.length > 0 ? 'Đã chọn ' + blSelected.length + '/' + blList.length : 'Chọn tất cả (' + blList.length + ')'"></span>
+                        </label>
+                        <div class="flex-1"></div>
+                        <button @click="restoreSelected()" :disabled="blSelected.length === 0 || blRestoring"
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5 disabled:opacity-40 shadow-sm">
+                            <i class="fa-solid" :class="blRestoring ? 'fa-circle-notch fa-spin' : 'fa-rotate-left'"
+                                style="font-size:10px"></i>
+                            <span style="color: black;" x-text="blRestoring ? 'Đang gỡ...' : 'Gỡ Đã Chọn'"></span>
+                        </button>
+                    </div>
+
+                    <!-- Account list with checkboxes -->
+                    <div class="overflow-x-auto bg-white rounded-lg border border-orange-100">
+                        <table class="w-full text-sm text-left">
+                            <tbody>
+                                <template x-for="(name, idx) in blList" :key="name">
+                                    <tr class="border-b border-orange-50 hover:bg-orange-50/50 transition-colors"
+                                        :class="blSelected.includes(name) ? 'bg-orange-50' : ''">
+                                        <td class="px-3 py-2.5 text-center" style="width:40px">
+                                            <input type="checkbox" :checked="blSelected.includes(name)"
+                                                @change="toggleSelect(name)" :disabled="blRestoringName === name"
+                                                class="w-4 h-4 rounded border-orange-300 text-orange-600 focus:ring-orange-400 cursor-pointer accent-orange-600">
+                                        </td>
+                                        <td class="px-3 py-2.5" style="width:30px">
+                                            <span class="text-xs text-slate-400" x-text="idx + 1"></span>
+                                        </td>
+                                        <td class="px-3 py-2.5">
+                                            <span class="font-mono text-xs text-slate-700 truncate block max-w-[300px]"
+                                                x-text="name" :title="name"></span>
+                                        </td>
+                                        <td class="px-3 py-2.5 text-right" style="width:80px">
+                                            <button @click="restoreOne(name)" :disabled="blRestoringName === name"
+                                                class="text-orange-500 hover:text-emerald-600 hover:bg-emerald-50 rounded px-2 py-1 transition-colors text-xs font-bold inline-flex items-center gap-1 disabled:opacity-50">
+                                                <i class="fa-solid text-[10px]"
+                                                    :class="blRestoringName === name ? 'fa-circle-notch fa-spin' : 'fa-rotate-left'"></i>
+                                                <span x-text="blRestoringName === name ? '...' : 'Gỡ'"></span>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- 💰 BẢNG CREDITS TẤT CẢ ACCOUNTS -->
+    <div class="glass-panel rounded-xl overflow-hidden border border-emerald-200 shadow-xl w-full"
+        x-show="Object.keys(creditsMap).length > 0" x-cloak>
+
+        <div class="p-4 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-coins text-emerald-500 text-lg"></i>
+                <h3 class="text-base font-bold text-slate-800">Credits Tài Khoản</h3>
+                <span class="text-[11px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full"
+                    x-text="Object.keys(creditsMap).length + ' accounts'"></span>
+            </div>
+        </div>
+
+        <div class="px-5 pb-5">
+            <div class="overflow-x-auto bg-white rounded-lg border border-slate-200">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-3" style="width:5%">#</th>
+                            <th class="px-4 py-3" style="width:30%">Account</th>
+                            <th class="px-4 py-3 text-center" style="width:15%">Credits</th>
+                            <th class="px-4 py-3 text-center" style="width:15%">SKU</th>
+                            <th class="px-4 py-3 text-center" style="width:15%">Tier</th>
+                            <th class="px-4 py-3 text-center" style="width:20%">Trạng Thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(acc, idx) in Object.values(creditsMap)" :key="acc.id">
+                            <tr class="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                                <td class="px-4 py-2.5 text-xs text-slate-400" x-text="idx + 1"></td>
+                                <td class="px-4 py-2.5">
+                                    <span
+                                        class="font-mono font-bold text-slate-800 text-xs truncate block max-w-[250px]"
+                                        x-text="acc.name" :title="acc.name"></span>
+                                </td>
+                                <td class="px-4 py-2.5 text-center">
+                                    <template x-if="acc.credits_data">
+                                        <span
+                                            class="inline-flex items-center gap-1.5 font-bold text-sm px-3 py-1 rounded-full"
+                                            :class="{
+                                                'bg-emerald-100 text-emerald-700': acc.credits_data.credits > 10000,
+                                                'bg-amber-100 text-amber-700': acc.credits_data.credits > 0 && acc.credits_data.credits <= 10000,
+                                                'bg-red-100 text-red-700': acc.credits_data.credits <= 0
+                                            }">
+                                            <i class="fa-solid fa-coins text-[10px]"></i>
+                                            <span x-text="acc.credits_data.credits?.toLocaleString() || '0'"></span>
+                                        </span>
+                                    </template>
+                                    <template x-if="!acc.credits_data && acc.error">
+                                        <span class="text-xs text-red-400 font-medium">❌ Lỗi</span>
+                                    </template>
+                                </td>
+                                <td class="px-4 py-2.5 text-center">
+                                    <template x-if="acc.credits_data?.sku">
+                                        <span class="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                                            :class="acc.credits_data.sku === 'WS_ULTRA' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'"
+                                            x-text="acc.credits_data.sku"></span>
+                                    </template>
+                                    <template x-if="!acc.credits_data?.sku">
+                                        <span class="text-xs text-slate-300">—</span>
+                                    </template>
+                                </td>
+                                <td class="px-4 py-2.5 text-center">
+                                    <template x-if="acc.credits_data?.userPaygateTier">
+                                        <span class="text-[11px] font-medium text-slate-600"
+                                            x-text="acc.credits_data.userPaygateTier.replace('PAYGATE_', '')"></span>
+                                    </template>
+                                    <template x-if="!acc.credits_data?.userPaygateTier">
+                                        <span class="text-xs text-slate-300">—</span>
+                                    </template>
+                                </td>
+                                <td class="px-4 py-2.5 text-center">
+                                    <template x-if="acc.credits_data">
+                                        <span
+                                            class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                            <i class="fa-solid fa-circle-check text-[8px]"></i> OK
+                                        </span>
+                                    </template>
+                                    <template x-if="!acc.credits_data && acc.error">
+                                        <span class="text-[10px] text-red-500 font-mono truncate block max-w-[150px]"
+                                            :title="acc.error" x-text="acc.error"></span>
+                                    </template>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- BẢNG TÀI KHOẢN BỊ CHẶN (CHỈ HIỂN THỊ KHI CÓ ACCOUNT LỖI) -->
+    <div x-data="{ tableOpen: true, selectedBannedIds: [], bulkDeleting: false, bulkUnbanning: false }"
+        class="glass-panel rounded-xl overflow-hidden border border-red-300 shadow-xl bg-red-50 w-full"
+        x-show="veoAccounts.filter(a => !a.is_active).length > 0" x-cloak>
+
+        <div @click="tableOpen = !tableOpen"
+            class="cursor-pointer group flex items-start justify-between p-5 hover:bg-red-100/50 transition-colors">
+            <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                    <i
+                        class="fa-solid fa-triangle-exclamation text-red-600 text-lg group-hover:scale-110 transition-transform"></i>
+                    <h3 class="text-base font-bold text-red-800">Tài Khoản Có Vấn Đề (Đang Bị Khóa / Ban)</h3>
+                    <span
+                        class="inline-flex items-center gap-1 bg-red-200 text-red-800 text-[11px] font-bold px-2 py-0.5 rounded-full"
+                        x-text="veoAccounts.filter(a => !a.is_active).length"></span>
+                </div>
+                <p class="text-xs text-red-700">
+                    Các tài khoản dưới đây đang bị tắt hoặc bị hệ thống tự động khóa (BAN) do gặp lỗi nghiêm trọng
+                    (401/403
+                    API). <br>
+                    Bấm <b>"Gỡ Ban"</b> dưới đây để kích hoạt lại nếu bạn chắc chắn cookie đã được làm mới.
+                </p>
+            </div>
+            <div
+                class="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 text-red-500 group-hover:bg-red-200 group-hover:text-red-700 transition-colors shrink-0 ml-4 mt-2">
+                <i class="fa-solid transition-transform duration-300"
+                    :class="tableOpen ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+            </div>
+        </div>
+
+        <div x-show="tableOpen" x-transition class="px-5 pb-5">
+            <!-- Bulk Action Bar -->
+            <div x-show="selectedBannedIds.length > 0" x-transition
+                class="mb-3 flex items-center gap-2 bg-red-100 border border-red-300 rounded-lg px-4 py-2.5 shadow-sm">
+                <span class="text-sm font-bold text-red-800">
+                    Đã chọn <span x-text="selectedBannedIds.length" class="text-red-600"></span> tài khoản
+                </span>
+                <div class="flex-1"></div>
+                <!-- Bulk Unban -->
+                <button @click="
+                    if (!confirm('Gỡ ban ' + selectedBannedIds.length + ' tài khoản đã chọn?')) return;
+                    bulkUnbanning = true;
+                    const _app = Alpine.$data($root);
+                    (async () => {
+                        try {
+                            const res = await _app.apiCall('/veo/accounts/bulk-unban', 'POST', { ids: selectedBannedIds });
+                            _app.showToast('✅ ' + (res.message || 'Đã gỡ ban thành công!'), 'success');
+                        } catch (e) {
+                            _app.showToast('❌ ' + e.message, 'error');
+                        }
+                        selectedBannedIds = [];
+                        bulkUnbanning = false;
+                        _app.loadVeoAccounts();
+                        _app.loadAccountActivities();
+                    })();
+                " :disabled="bulkUnbanning || bulkDeleting"
+                    class="bg-white text-amber-700 border border-amber-400 hover:bg-amber-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 inline-flex items-center gap-1.5 disabled:opacity-50 shadow-sm">
+                    <i class="fa-solid" :class="bulkUnbanning ? 'fa-circle-notch fa-spin' : 'fa-lock-open'"
+                        style="font-size:10px"></i>
+                    <span x-text="bulkUnbanning ? 'Đang gỡ ban...' : 'Gỡ Ban Đã Chọn'"></span>
+                </button>
+                <!-- Bulk Delete -->
+                <button @click="
+                    if (!confirm('⚠️ Xoá triệt để ' + selectedBannedIds.length + ' tài khoản đã chọn? Hành động này KHÔNG THỂ hoàn tác!')) return;
+                    bulkDeleting = true;
+                    const _app = Alpine.$data($root);
+                    (async () => {
+                        try {
+                            const res = await _app.apiCall('/veo/accounts/bulk-delete', 'POST', { ids: selectedBannedIds });
+                            _app.showToast('🗑️ ' + (res.message || 'Đã xoá thành công!'), 'success');
+                        } catch (e) {
+                            _app.showToast('❌ ' + e.message, 'error');
+                        }
+                        selectedBannedIds = [];
+                        bulkDeleting = false;
+                        _app.loadVeoAccounts();
+                        _app.loadAccountActivities();
+                    })();
+                " :disabled="bulkDeleting || bulkUnbanning"
+                    class="bg-red-600 text-white hover:bg-red-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 inline-flex items-center gap-1.5 disabled:opacity-50 shadow-sm">
+                    <i class="fa-solid" :class="bulkDeleting ? 'fa-circle-notch fa-spin' : 'fa-trash'"
+                        style="font-size:10px"></i>
+                    <span x-text="bulkDeleting ? 'Đang xoá...' : 'Xoá Đã Chọn'"></span>
+                </button>
+            </div>
+
+            <div class="overflow-x-auto bg-white rounded-lg border border-red-200">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-slate-500 uppercase bg-slate-100 border-b border-red-100">
+                        <tr>
+                            <th class="px-3 py-3 text-center" style="width: 5%">
+                                <input type="checkbox"
+                                    class="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-400 cursor-pointer accent-red-600"
+                                    @change="
+                                        const bannedIds = veoAccounts.filter(a => !a.is_active).map(a => a.id);
+                                        selectedBannedIds = $event.target.checked ? [...bannedIds] : [];
+                                    "
+                                    :checked="selectedBannedIds.length > 0 && selectedBannedIds.length === veoAccounts.filter(a => !a.is_active).length"
+                                    :indeterminate="selectedBannedIds.length > 0 && selectedBannedIds.length < veoAccounts.filter(a => !a.is_active).length"
+                                    title="Chọn tất cả">
+                            </th>
+                            <th class="px-4 py-3" style="width: 20%">Tên Account Bị Ban</th>
+                            <th class="px-4 py-3" style="width: 12%">Trạng Thái</th>
+                            <th class="px-4 py-3" style="width: 18%">Lý Do</th>
+                            <th class="px-3 py-3 text-right" style="width: 20%">Thao Tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="acc in veoAccounts.filter(a => !a.is_active)" :key="acc.id">
+                            <tr class="border-b border-red-50 hover:bg-red-50 transition-colors"
+                                :class="selectedBannedIds.includes(acc.id) ? 'bg-red-100/60' : ''">
+                                <td class="px-3 py-3 text-center">
+                                    <input type="checkbox"
+                                        class="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-400 cursor-pointer accent-red-600"
+                                        :value="acc.id" :checked="selectedBannedIds.includes(acc.id)" @change="
+                                            if ($event.target.checked) {
+                                                if (!selectedBannedIds.includes(acc.id)) selectedBannedIds.push(acc.id);
+                                            } else {
+                                                selectedBannedIds = selectedBannedIds.filter(id => id !== acc.id);
+                                            }
+                                        ">
+                                </td>
+                                <td class="px-4 py-3 font-mono font-bold text-red-600 truncate max-w-xs"
+                                    x-text="acc.name">
+                                </td>
+                                <td class="px-4 py-3 text-xs text-slate-600">
+                                    Bị khóa (is_active = False)
+                                </td>
+                                <td class="px-4 py-3">
+                                    <template x-if="acc.ban_reason">
+                                        <span class="text-xs font-medium leading-tight block max-w-[200px]"
+                                            :class="(acc.ban_reason || '').toLowerCase().includes('proxy') ? 'text-orange-600 font-bold' : 'text-red-600'"
+                                            x-text="acc.ban_reason"></span>
+                                    </template>
+                                    <template x-if="!acc.ban_reason">
+                                        <span class="text-xs text-slate-400 italic">Không rõ / Tắt thủ công</span>
+                                    </template>
+                                </td>
+                                <td class="px-3 py-3 text-right">
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <button @click="toggleVeoAccount(acc)" :disabled="togglingAccountId === acc.id"
+                                            class="bg-white text-red-600 border border-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-200 inline-flex items-center gap-1.5 shadow-sm disabled:opacity-60 disabled:cursor-wait">
+                                            <i class="fa-solid text-[9px]"
+                                                :class="togglingAccountId === acc.id ? 'fa-circle-notch fa-spin' : 'fa-lock-open'"></i>
+                                            <span
+                                                x-text="togglingAccountId === acc.id ? 'Đang gỡ...' : 'Gỡ Ban'"></span>
+                                        </button>
+                                        <button @click="deleteVeoAccount(acc.id)"
+                                            :disabled="deletingAccountId === acc.id" style="color: red;"
+                                            class="bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-200 inline-flex items-center gap-1.5 shadow-sm disabled:opacity-60 disabled:cursor-wait">
+                                            <i class="fa-solid text-[9px]"
+                                                :class="deletingAccountId === acc.id ? 'fa-circle-notch fa-spin' : 'fa-trash'"></i>
+                                            <span x-text="deletingAccountId === acc.id ? 'Đang xoá...' : 'Xoá'"></span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Table (ẩn) -->
+    <div class="glass-panel rounded-xl overflow-hidden border border-slate-200 shadow-xl" style="display:none">
+        <div class="overflow-x-auto -webkit-overflow-scrolling-touch">
+            <table id="veo-tbl" class="w-full text-sm text-left">
+                <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-3 py-3" style="min-width:110px">Tên Account</th>
+                        <th class="px-3 py-3" style="min-width:130px">Cookie</th>
+                        <th class="px-3 py-3" style="min-width:120px">Proxy</th>
+                        <th class="px-3 py-3" style="min-width:120px">Sức Khoẻ</th>
+                        <th class="px-3 py-3" style="min-width:90px">Chrome</th>
+                        <th class="px-3 py-3" style="min-width:130px">⚡ Giao Việc</th>
+                        <th class="px-3 py-3" style="min-width:100px">Hoạt Động</th>
+                        <th class="px-3 py-3 text-right" style="min-width:70px">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-if="loadingVeoAccounts">
+                        <tr>
+                            <td colspan="8" class="px-4 py-8 text-center text-slate-500"><i
+                                    class="fa-solid fa-spinner fa-spin mr-2"></i>Đang tải dữ liệu...
+                            </td>
+                        </tr>
+                    </template>
+                    <template x-if="!loadingVeoAccounts && veoAccounts.length === 0">
+                        <tr>
+                            <td colspan="8" class="px-4 py-12 text-center text-slate-500">
+                                <div class="flex flex-col items-center justify-center">
+                                    <i class="fa-solid fa-server text-3xl text-slate-300 mb-3"></i>
+                                    <span class="font-medium">Chưa có dữ liệu Proxy/Cookie nào trong hệ thống</span>
+                                    <p class="text-xs text-slate-400 mt-1">Bấm "Thêm Account" để bắt đầu nạp tài khoản
+                                    </p>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                    <template x-for="acc in veoAccounts" :key="acc.id">
+                        <tr class="border-b border-slate-200 hover:bg-blue-50/50 transition-colors">
+
+                            <!-- Tên Account -->
+                            <td class="px-3 py-3">
+                                <span class="font-bold text-slate-900 block truncate max-w-[140px]" x-text="acc.name"
+                                    :title="acc.name"></span>
+                            </td>
+
+                            <!-- Cookie Snippet -->
+                            <td class="px-3 py-3">
+                                <div class="max-w-[120px] truncate text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded border border-slate-200"
+                                    :title="acc.cookie" x-text="(acc.cookie || '').substring(0, 18) + '...'">
+                                </div>
+                            </td>
+
+                            <!-- Private Proxy + Proxy Health -->
+                            <td class="px-3 py-3">
+                                <template x-if="acc.proxy">
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-center gap-1 text-xs font-mono text-slate-600"
+                                            :title="acc.proxy">
+                                            <i class="fa-solid fa-network-wired text-indigo-400 shrink-0"></i>
+                                            <span class="truncate max-w-[110px]"
+                                                x-text="acc.proxy.replace(/^https?:\/\//, '').replace(/^[^@]+@/, '')"></span>
+                                        </div>
+                                        <template x-if="proxyHealthMap[acc.id]">
+                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full w-fit"
+                                                :class="proxyHealthMap[acc.id]?.alive === true ? 'bg-emerald-100 text-emerald-700' : proxyHealthMap[acc.id]?.alive === false ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'"
+                                                x-text="proxyHealthMap[acc.id]?.alive === true ? ('🟢 ' + proxyHealthMap[acc.id]?.latency_ms + 'ms') : proxyHealthMap[acc.id]?.alive === false ? '🔴 DEAD' : '—'">
+                                            </span>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="!acc.proxy">
+                                    <span class="text-xs text-slate-400 italic">—</span>
+                                </template>
+                            </td>
+
+                            <!-- Trạng thái Pool + Cookie Health -->
+                            <td class="px-4 py-3">
+                                <div class="flex flex-col gap-1">
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="w-2 h-2 rounded-full shrink-0"
+                                            :class="acc.is_active ? 'bg-emerald-400' : 'bg-red-400'">
+                                        </div>
+                                        <span class="text-xs font-medium"
+                                            x-text="acc.is_active ? 'Trong Pool' : 'Đã Tắt'"></span>
+                                    </div>
+                                    <template x-if="cookieHealthMap[acc.id]">
+                                        <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full mt-1"
+                                            style="display:inline-block;width:fit-content; padding-left: 25px; padding-right: 25px;"
+                                            :style="{
+                                                background: cookieHealthMap[acc.id]?.status === 'ok' ? '#d1fae5' :
+                                                            cookieHealthMap[acc.id]?.status === 'warning' ? '#fef3c7' :
+                                                            ['expired','revoked','invalid','check_failed'].includes(cookieHealthMap[acc.id]?.status) ? '#fee2e2' : '#f1f5f9',
+                                                color: cookieHealthMap[acc.id]?.status === 'ok' ? '#047857' :
+                                                       cookieHealthMap[acc.id]?.status === 'warning' ? '#b45309' :
+                                                       ['expired','revoked','invalid','check_failed'].includes(cookieHealthMap[acc.id]?.status) ? '#b91c1c' : '#64748b'
+                                            }" x-text="cookieHealthMap[acc.id]?.status === 'ok' ? 'Hợp lệ' :
+                                                    cookieHealthMap[acc.id]?.status === 'warning' ? ('Còn ' + cookieHealthMap[acc.id]?.days_left + ' ngày') :
+                                                    ['expired','revoked','invalid','check_failed'].includes(cookieHealthMap[acc.id]?.status) ? 'Không hợp lệ' :
+                                                    'Chưa kết nối'"></span>
+                                    </template>
+                                </div>
+                            </td>
+
+                            <!-- Chrome Extension Captcha -->
+                            <td class="px-4 py-3">
+                                <button @click="launchChromeForAccount(acc)"
+                                    :title="captchaConnected[acc.name] ? 'Chrome đang kết nối — bấm để đóng' : 'Bấm để mở Chrome giải Captcha'"
+                                    :class="captchaConnected[acc.name] 
+                                         ? 'bg-emerald-500 hover:bg-red-500 text-white'
+                                         : 'bg-white hover:bg-indigo-600 hover:text-white text-slate-500 border border-slate-300'"
+                                    class=" p-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200">
+                                    <i
+                                        :class=" captchaConnected[acc.name] ? 'fa-solid fa-circle-check' : 'fa-brands fa-chrome'"></i>
+                                    <span x-text="captchaConnected[acc.name] ? 'Connected' : 'Mở Chrome'"></span>
+                                </button>
+                            </td>
+
+                            <!-- ⚡ Trạng Thái Giao Việc -->
+                            <td class="px-4 py-3">
+                                <template x-if="acc.active_tasks_count > 0">
+                                    <div class="flex flex-col gap-1" style="padding: 5px;">
+                                        <span
+                                            class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 w-fit">
+                                            <i class="fa-solid fa-circle-notch fa-spin text-[9px]"></i>
+                                            <span x-text="'Đang chạy ' + acc.active_tasks_count + ' task'"></span>
+                                        </span>
+                                        <template x-for="pid in (acc.active_projects || [])" :key="pid">
+                                            <span class="text-[10px] font-mono text-slate-400 truncate max-w-[150px]"
+                                                :title="pid">
+                                                📁 <span x-text="pid.substring(0,16) + '...'"></span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="!acc.active_tasks_count || acc.active_tasks_count === 0">
+                                    <span
+                                        class="p-5 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 w-fit">
+                                        Đang rảnh
+                                    </span>
+                                </template>
+                            </td>
+
+                            <!-- Hoạt Động (toggle switch inline style) -->
+                            <td class="px-4 py-3">
+                                <button @click="toggleVeoAccount(acc)" type="button"
+                                    :title="acc.is_active ? 'Đang BẬT — bấm để TẮT' : 'Đang TẮT — bấm để BẬT'"
+                                    :style="`position:relative;display:inline-flex;align-items:center;width:44px;height:24px;border-radius:9999px;border:none;cursor:pointer;transition:background .2s;background:${acc.is_active ? '#10b981' : '#cbd5e1'};outline:none;flex-shrink:0`">
+                                    <span
+                                        :style="`display:inline-block;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s;transform:${acc.is_active ? 'translateX(22px)' : 'translateX(2px)'}`"></span>
+                                </button>
+                                <br>
+                                <span style="font-size:12px;margin-left:6px;font-weight:500"
+                                    :style="acc.is_active ? 'color:#059669' : 'color:#94a3b8'"
+                                    x-text="acc.is_active ? 'Đang dùng' : 'Tắt'"></span>
+                            </td>
+
+                            <!-- Thao tác -->
+                            <td class="px-4 py-3 text-right">
+                                <div class="flex items-center justify-end gap-1">
+                                    <button @click="openVeoAccountEditModal(acc)"
+                                        class="text-slate-400 hover:text-slate-900 transition-colors p-1.5 rounded hover:bg-slate-100">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <button @click="deleteVeoAccount(acc.id)"
+                                        class="text-slate-400 hover:text-red-600 transition-colors p-1.5 rounded hover:bg-red-50">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- Chrome / Captcha JS functions -->
+<script>
+    // captchaConnected[accountName] = true/false (được poll từ /api/captcha/status)
+    function initCaptchaPolling(alpineData) {
+        async function pollCaptchaStatus() {
+            try {
+                const API_BASE = window.API_BASE || '';
+                const token = alpineData.apiKey || localStorage.getItem('api_key') || '';
+                const res = await fetch(`${API_BASE}/api/captcha/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const connected = {};
+                    (data.connected_accounts || []).forEach(acc => { connected[acc] = true; });
+                    alpineData.captchaConnected = connected;
+                }
+            } catch (e) { /* silent */ }
+        }
+        pollCaptchaStatus(); // Chỉ poll 1 lần khi init — app_script.html đã có timer 5s
+    }
+
+    async function launchChromeForAccount(acc) {
+        const API_BASE = window.API_BASE || '';
+        const token = window._apiKey || localStorage.getItem('api_key') || '';
+        const isConnected = window._alpineApp?.captchaConnected?.[acc.name];
+
+        const action = isConnected ? 'close-chrome' : 'launch-chrome';
+        try {
+            const res = await fetch(`${API_BASE}/api/veo/accounts/${acc.id}/${action}`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (!data.success && data.error) {
+                alert('Lỗi: ' + data.error);
+            }
+        } catch (e) {
+            alert('Lỗi kết nối: ' + e.message);
+        }
+    }
+
+    // ─── KiotProxy Pool Panel (Alpine) ───
+    function kiotProxyPoolPanel() {
+        return {
+            keysText: '',
+            accountsPerKey: 1,
+            region: 'random',
+            saving: false,
+            refreshing: false,
+            loading: true,
+            status: null,
+            togglingAccount: null,
+            async excludeAccount(accountName) {
+                return await this._toggleAccount(accountName, true);
+            },
+            async includeAccount(accountName) {
+                return await this._toggleAccount(accountName, false);
+            },
+            async _toggleAccount(accountName, excluded) {
+                if (!accountName || this.togglingAccount) return;
+                this.togglingAccount = accountName;
+                const _app = Alpine.$data(document.querySelector('[x-data]'));
+                try {
+                    const resp = await _app.apiCall(
+                        '/admin/settings/kiotproxy-pool/exclude-account',
+                        'POST',
+                        { account_name: accountName, excluded: excluded }
+                    );
+                    _app.showToast(resp.message || '✅ Đã cập nhật', 'success');
+                    this.status = resp.status || this.status;
+                } catch (e) {
+                    _app.showToast('❌ ' + (e.message || 'Toggle failed'), 'error');
+                }
+                this.togglingAccount = null;
+            },
+            async loadPool() {
+                try {
+                    const _app = Alpine.$data(document.querySelector('[x-data]'));
+                    const data = await _app.apiCall('/admin/settings/kiotproxy-pool');
+                    this.keysText = (data.keys || []).join('\n');
+                    this.accountsPerKey = Number(data.accounts_per_key || 1);
+                    this.region = data.region || 'random';
+                    this.status = data.status || null;
+                } catch (e) {
+                    console.error('[KiotProxy-Pool] load failed', e);
+                }
+                this.loading = false;
+            },
+            async savePool() {
+                if (this.saving) return;
+                this.saving = true;
+                const _app = Alpine.$data(document.querySelector('[x-data]'));
+                try {
+                    const keys = this.keysText.split('\n').map(s => s.trim()).filter(Boolean);
+                    const resp = await _app.apiCall('/admin/settings/kiotproxy-pool', 'PUT', {
+                        keys: keys,
+                        accounts_per_key: Number(this.accountsPerKey) || 1,
+                        region: this.region
+                    });
+                    _app.showToast(resp.message || '✅ Đã lưu & fetch pool!', 'success');
+                    this.status = resp.status || null;
+                } catch (e) {
+                    _app.showToast('❌ ' + (e.message || 'Save failed'), 'error');
+                }
+                this.saving = false;
+            },
+            async forceRefresh() {
+                if (this.refreshing) return;
+                this.refreshing = true;
+                const _app = Alpine.$data(document.querySelector('[x-data]'));
+                try {
+                    const resp = await _app.apiCall('/admin/settings/kiotproxy-pool/refresh', 'POST');
+                    _app.showToast(resp.message || '🔄 Pool refreshed', 'success');
+                    this.status = resp.status || null;
+                } catch (e) {
+                    _app.showToast('❌ ' + (e.message || 'Refresh failed'), 'error');
+                }
+                this.refreshing = false;
+            },
+            importTxt(event) {
+                const file = event.target.files && event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = String(e.target.result || '');
+                    const newKeys = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                    // Merge: giữ key cũ + append key mới, dedup
+                    const existing = this.keysText.split('\n').map(s => s.trim()).filter(Boolean);
+                    const merged = [...existing];
+                    for (const k of newKeys) {
+                        if (!merged.includes(k)) merged.push(k);
+                    }
+                    this.keysText = merged.join('\n');
+                    event.target.value = '';
+                };
+                reader.readAsText(file);
+            }
+        };
+    }
+</script>

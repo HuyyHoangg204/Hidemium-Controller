@@ -1,0 +1,1093 @@
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoVoice Studio</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #0d0f1a;
+      --surface: #141728;
+      --surface2: #1a1f35;
+      --border: #1e2540;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --accent: #6c63ff;
+      --accent2: #818cf8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --blue: #3b82f6;
+      --radius: 10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    /* HEADER */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .header-left h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    .header-left p {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* BUTTONS */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+
+    .btn-connected {
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+    }
+
+    .btn-start {
+      background: linear-gradient(135deg, var(--accent), var(--blue));
+      color: #fff;
+    }
+
+    .btn-start:hover {
+      opacity: 0.88;
+      transform: translateY(-1px);
+    }
+
+    .btn-stop {
+      background: var(--red);
+      color: #fff;
+      padding: 7px 12px;
+    }
+
+    .btn-stop:hover {
+      opacity: 0.85;
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.25);
+    }
+
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      background: var(--border);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--blue));
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.88;
+    }
+
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 12px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+    }
+
+    /* STATS CARDS */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      padding: 16px 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .stat-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .stat-icon.yellow {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--yellow);
+    }
+
+    .stat-icon.purple {
+      background: rgba(108, 99, 255, 0.15);
+      color: var(--accent);
+    }
+
+    .stat-icon.blue {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--blue);
+    }
+
+    .stat-icon.green {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+    }
+
+    .stat-body {
+      flex: 1;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .stat-sub {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 2px;
+      line-height: 1;
+    }
+
+    .stat-unit {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .ratio-tabs {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .ratio-tab {
+      padding: 3px 10px;
+      border-radius: 5px;
+      font-size: 11px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .ratio-tab.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .stat-input {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 26px;
+      font-weight: 700;
+      width: 60px;
+      outline: none;
+    }
+
+    .stat-input::-webkit-inner-spin-button {
+      display: none;
+    }
+
+    /* PROMPT AREA */
+    .prompt-area {
+      margin: 0 24px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .prompt-area textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 13px;
+      resize: none;
+      outline: none;
+      min-height: 40px;
+      max-height: 120px;
+      line-height: 1.6;
+      font-family: inherit;
+    }
+
+    .prompt-area textarea::placeholder {
+      color: var(--muted);
+    }
+
+    .prompt-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-end;
+    }
+
+    /* QUEUE SECTION */
+    .queue-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 24px 10px;
+    }
+
+    .queue-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .mode-select-wrap {
+      position: relative;
+    }
+
+    .mode-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      padding: 5px 28px 5px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+    }
+
+    .mode-select-wrap::after {
+      content: '▾';
+      position: absolute;
+      right: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 10px;
+      pointer-events: none;
+    }
+
+    .queue-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .check-all {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    /* TABLE */
+    .table-wrap {
+      margin: 0 24px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: var(--surface2);
+    }
+
+    thead th {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    tbody tr {
+      border-top: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    tbody td {
+      padding: 11px 14px;
+      font-size: 13px;
+      color: var(--text);
+      vertical-align: middle;
+    }
+
+    .td-prompt {
+      max-width: 500px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .td-status {}
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .s-pending {
+      background: rgba(100, 116, 139, 0.15);
+      color: var(--muted);
+    }
+
+    .s-running {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--blue);
+    }
+
+    .s-done {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+    }
+
+    .s-error {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+    }
+
+    .op-name {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: monospace;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .empty-row td {
+      color: var(--muted);
+      text-align: center;
+      padding: 40px;
+      font-size: 13px;
+    }
+
+    input[type=checkbox] {
+      accent-color: var(--accent);
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      width: 520px;
+      max-width: 90vw;
+    }
+
+    .modal h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .modal p {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    .modal textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-family: monospace;
+      resize: vertical;
+      min-height: 160px;
+      outline: none;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .status-bar {
+      padding: 6px 24px;
+      font-size: 11px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 16px;
+      display: flex;
+      gap: 20px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border: 2px solid var(--blue);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .machine-panel {
+      margin: 0 24px 18px;
+      padding: 18px;
+      border: 1px solid rgba(129, 140, 248, 0.24);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at top left, rgba(108, 99, 255, 0.22), transparent 34%),
+        linear-gradient(135deg, rgba(20, 23, 40, 0.96), rgba(13, 15, 26, 0.94));
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .machine-panel::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      background: linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.14), transparent);
+      pointer-events: none;
+    }
+
+    .machine-head {
+      position: relative;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+
+    .machine-title h2 {
+      font-size: 17px;
+      letter-spacing: -0.2px;
+      margin-bottom: 4px;
+    }
+
+    .machine-title p {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .machine-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .machine-kpi {
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.045);
+      backdrop-filter: blur(14px);
+    }
+
+    .machine-kpi span {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 6px;
+    }
+
+    .machine-kpi strong {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .machine-table-wrap {
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      overflow: auto;
+      background: rgba(7, 10, 22, 0.42);
+    }
+
+    .machine-table th,
+    .machine-table td {
+      white-space: nowrap;
+      padding: 10px 12px;
+    }
+
+    .machine-id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .machine-url {
+      display: inline-block;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--accent2);
+      vertical-align: bottom;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .pill-online { background: rgba(34, 197, 94, 0.16); color: #4ade80; }
+    .pill-offline { background: rgba(100, 116, 139, 0.16); color: #94a3b8; }
+    .pill-warn { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+    .pill-bad { background: rgba(239, 68, 68, 0.16); color: #fb7185; }
+
+    @media (max-width: 1000px) {
+      .stats,
+      .machine-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .stats,
+      .machine-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <h1>AutoVoice Studio</h1>
+      <p>Text &amp; Image &rarr; 1080p AI Video</p>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-connected" id="btnCookie" onclick="openCookieModal()">
+        <span class="dot" id="connDot"></span>
+        <span id="connLabel">Ket noi</span>
+      </button>
+      <button class="btn btn-start" id="btnStart" onclick="startSelected()">
+        &#9654; Bat dau
+      </button>
+      <button class="btn btn-stop" id="btnStop" onclick="stopAll()" title="Dung">&#9632;</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-icon yellow">&#9889;</div>
+      <div class="stat-body">
+        <div class="stat-label">Luong</div>
+        <div class="stat-sub">Concurrent prompts</div>
+      </div>
+      <div>
+        <input class="stat-input" type="number" id="concurrency" value="1" min="1" max="5">
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon purple">&#127909;</div>
+      <div class="stat-body">
+        <div class="stat-label">Video/Prompt</div>
+        <div class="stat-sub">Videos per prompt</div>
+      </div>
+      <div>
+        <input class="stat-input" type="number" id="videoCount" value="1" min="1" max="4">
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon blue">&#128336;</div>
+      <div class="stat-body">
+        <div class="stat-label">Delay</div>
+        <div class="stat-sub">Between batches</div>
+      </div>
+      <div>
+        <input class="stat-input" type="number" id="delay" value="30" min="0" max="300" style="width:70px">
+        <span class="stat-unit">s</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon green">&#9974;</div>
+      <div class="stat-body">
+        <div class="stat-label">Ti le</div>
+        <div class="stat-sub">Aspect ratio</div>
+      </div>
+      <div>
+        <div class="ratio-tabs">
+          <button class="ratio-tab active" data-r="VIDEO_ASPECT_RATIO_9_16" onclick="setRatio(this)">9:16</button>
+          <button class="ratio-tab" data-r="VIDEO_ASPECT_RATIO_16_9" onclick="setRatio(this)">16:9</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MACHINE DASHBOARD -->
+  <section class="machine-panel" aria-labelledby="machineDashboardTitle">
+    <div class="machine-head">
+      <div class="machine-title">
+        <h2 id="machineDashboardTitle">Machine Registry</h2>
+        <p>Theo doi cac may exe da register, heartbeat, slot va FRP public URL.</p>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="btnRefreshMachines" onclick="refreshMachines()">&#8635; Refresh</button>
+    </div>
+    <div class="machine-grid">
+      <div class="machine-kpi"><span>Total Machines</span><strong id="machineTotal">0</strong></div>
+      <div class="machine-kpi"><span>Online</span><strong id="machineOnline">0</strong></div>
+      <div class="machine-kpi"><span>Accepting Jobs</span><strong id="machineAccepting">0</strong></div>
+      <div class="machine-kpi"><span>Available Slots</span><strong id="machineSlots">0</strong></div>
+    </div>
+    <div class="machine-table-wrap">
+      <table class="machine-table">
+        <thead>
+          <tr>
+            <th>Machine</th>
+            <th>Status</th>
+            <th>Public URL</th>
+            <th>Version</th>
+            <th>Token</th>
+            <th>Slots</th>
+            <th>Jobs</th>
+            <th>Accept</th>
+            <th>FRP</th>
+            <th>Heartbeat</th>
+          </tr>
+        </thead>
+        <tbody id="machineTable">
+          <tr class="empty-row"><td colspan="10">Chua co machine nao register.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PROMPT INPUT -->
+  <div class="prompt-area">
+    <textarea id="promptInput" placeholder="Nhap prompt — moi dong 1 prompt, Enter de them vao bang..." rows="2"
+      onkeydown="handlePromptKey(event)"></textarea>
+    <div class="prompt-actions">
+      <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
+        &#128190; Import .txt
+        <input type="file" accept=".txt" style="display:none" onchange="importTxt(event)">
+      </label>
+      <button class="btn btn-primary btn-sm" onclick="addPrompts()">+ Them</button>
+    </div>
+  </div>
+
+  <!-- QUEUE HEADER -->
+  <div class="queue-header">
+    <span class="queue-title">Prompt Queue</span>
+    <span class="badge" id="queueCount">0</span>
+    <span style="color:var(--muted);font-size:12px;margin-left:4px;">Che do:</span>
+    <div class="mode-select-wrap">
+      <select class="mode-select" id="modeSelect">
+        <option value="t2v">Text to Video</option>
+        <option value="i2v">Image to Video</option>
+        <option value="t2i">Text to Image</option>
+      </select>
+    </div>
+    <div class="queue-actions">
+      <button class="btn btn-danger btn-sm" onclick="deleteSelected()">&#10005; Xoa</button>
+      <label class="check-all">
+        <input type="checkbox" id="checkAll" onchange="toggleCheckAll(this)"> Chon tat ca
+      </label>
+      <button class="btn btn-primary btn-sm" onclick="startSelected()">&#9654; Chay chon</button>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:36px"></th>
+          <th>PROMPT</th>
+          <th style="width:140px">TRANG THAI</th>
+          <th style="width:300px">KET QUA</th>
+        </tr>
+      </thead>
+      <tbody id="jobTable">
+        <tr class="empty-row">
+          <td colspan="4">Chua co prompt nao. Nhap prompt o tren de bat dau.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <span id="statSummary">San sang</span>
+    <span id="statRunning"></span>
+  </div>
+
+  <!-- COOKIE MODAL -->
+  <div class="modal-overlay" id="cookieModal">
+    <div class="modal">
+      <h3>Import Cookie</h3>
+      <p>Dan JSON cookie tu trinh duyet vao day (dinh dang mang JSON tu Cookie Editor extension):</p>
+      <textarea id="cookieInput"
+        placeholder='[{"name":"__Secure-next-auth.session-token","value":"eyJ..."}]'></textarea>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeCookieModal()">Huy</button>
+        <button class="btn btn-primary" onclick="importCookie()">Luu Cookie</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://127.0.0.1:7860';
+    let jobs = [];
+    let machines = [];
+    let selectedRatio = 'VIDEO_ASPECT_RATIO_9_16';
+    let pollTimer = null;
+
+    function setRatio(el) {
+      document.querySelectorAll('.ratio-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      selectedRatio = el.dataset.r;
+    }
+
+    function handlePromptKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        addPrompts();
+      }
+    }
+
+    function addPrompts() {
+      const text = document.getElementById('promptInput').value.trim();
+      if (!text) return;
+      const prompts = text.split('\n').filter(p => p.trim());
+      const mode = document.getElementById('modeSelect').value;
+      const count = parseInt(document.getElementById('videoCount').value) || 1;
+      fetch(API + '/api/jobs/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompts, mode, aspect: selectedRatio, count })
+      }).then(() => {
+        document.getElementById('promptInput').value = '';
+        refresh();
+      });
+    }
+
+    function importTxt(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        document.getElementById('promptInput').value = ev.target.result;
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+
+    function getCheckedIds() {
+      return Array.from(document.querySelectorAll('.row-check:checked')).map(c => parseInt(c.dataset.id));
+    }
+
+    function toggleCheckAll(cb) {
+      document.querySelectorAll('.row-check').forEach(c => c.checked = cb.checked);
+    }
+
+    function startSelected() {
+      const ids = getCheckedIds();
+      fetch(API + '/api/jobs/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ids.length ? ids : null })
+      }).then(() => refresh());
+    }
+
+    function stopAll() {
+      fetch(API + '/api/jobs/stop', { method: 'POST', body: '{}', headers: { 'Content-Type': 'application/json' } });
+    }
+
+    function deleteSelected() {
+      const ids = getCheckedIds();
+      if (!ids.length) {
+        fetch(API + '/api/jobs/clear', { method: 'POST', body: '{}', headers: { 'Content-Type': 'application/json' } }).then(() => refresh());
+        return;
+      }
+      fetch(API + '/api/jobs/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids })
+      }).then(() => refresh());
+    }
+
+    function statusBadge(s) {
+      const map = { pending: ['s-pending', '⏳ Cho'], running: ['s-running', '<span class="spinner"></span> Dang chay'], done: ['s-done', '✓ Xong'], error: ['s-error', '✕ Loi'] };
+      const [cls, label] = map[s] || ['s-pending', s];
+      return `<span class="status-badge ${cls}">${label}</span>`;
+    }
+
+    function resultCell(job) {
+      if (job.status === 'done' && job.result) {
+        const op = job.result.op_name || JSON.stringify(job.result).slice(0, 80);
+        return `<span class="op-name" title="${op}">${op}</span>`;
+      }
+      if (job.status === 'error') return `<span style="color:var(--red);font-size:11px;">${job.error || ''}</span>`;
+      return '';
+    }
+
+    function renderTable(jobsData) {
+      jobs = jobsData;
+      const tbody = document.getElementById('jobTable');
+      if (!jobs.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="4">Chua co prompt nao. Nhap prompt o tren de bat dau.</td></tr>';
+        document.getElementById('queueCount').textContent = '0';
+        return;
+      }
+      document.getElementById('queueCount').textContent = jobs.length;
+      tbody.innerHTML = jobs.map(j => `
+    <tr>
+      <td><input type="checkbox" class="row-check" data-id="${j.id}"></td>
+      <td class="td-prompt" title="${escHtml(j.prompt)}">${escHtml(j.prompt)}</td>
+      <td>${statusBadge(j.status)}</td>
+      <td>${resultCell(j)}</td>
+    </tr>`).join('');
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function formatHeartbeat(machine) {
+      if (!machine.last_heartbeat_at) return 'Chua co';
+      const age = machine.heartbeat_age_seconds;
+      if (age === null || age === undefined) return 'Vua xong';
+      if (age < 5) return 'Vua xong';
+      if (age < 60) return `${age}s truoc`;
+      return `${Math.floor(age / 60)}m truoc`;
+    }
+
+    function yesNoPill(value) {
+      return value
+        ? '<span class="pill pill-online">✓ yes</span>'
+        : '<span class="pill pill-offline">no</span>';
+    }
+
+    function frpPill(status) {
+      const s = String(status || 'unknown').toLowerCase();
+      const cls = s === 'running' ? 'pill-online' : (s === 'unknown' ? 'pill-offline' : 'pill-bad');
+      return `<span class="pill ${cls}">${escHtml(status || 'unknown')}</span>`;
+    }
+
+    function renderMachines(payload) {
+      const summary = payload.summary || {};
+      machines = payload.machines || [];
+      document.getElementById('machineTotal').textContent = summary.total || 0;
+      document.getElementById('machineOnline').textContent = summary.online || 0;
+      document.getElementById('machineAccepting').textContent = summary.accepting || 0;
+      document.getElementById('machineSlots').textContent = summary.available_slots || 0;
+
+      const tbody = document.getElementById('machineTable');
+      if (!machines.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Chua co machine nao register.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = machines.map(m => {
+        const statusCls = m.is_online ? 'pill-online' : 'pill-offline';
+        const statusText = m.is_online ? 'online' : 'offline';
+        return `<tr>
+          <td><span class="machine-id">${escHtml(m.machine_id || '')}</span></td>
+          <td><span class="pill ${statusCls}"><span class="dot" style="background:currentColor"></span>${statusText}</span></td>
+          <td><a class="machine-url" href="${escHtml(m.public_url || '#')}" target="_blank" title="${escHtml(m.public_url || '')}">${escHtml(m.public_url || '')}</a></td>
+          <td>${escHtml(m.version || 'unknown')}</td>
+          <td>${Number(m.token_count || 0).toLocaleString()}</td>
+          <td>${m.available_slots || 0}</td>
+          <td>${m.running_jobs || 0}</td>
+          <td>${yesNoPill(!!m.accepting_jobs)}</td>
+          <td>${frpPill(m.frp_status)}</td>
+          <td>${formatHeartbeat(m)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function refreshMachines() {
+      return fetch(API + '/api/machines')
+        .then(r => r.json())
+        .then(renderMachines)
+        .catch(() => { });
+    }
+
+    function refresh() {
+      fetch(API + '/api/status').then(r => r.json()).then(data => {
+        renderTable(data.jobs || []);
+        const running = data.running;
+        const connected = data.connected;
+        document.getElementById('connDot').style.background = connected ? 'var(--green)' : 'var(--red)';
+        document.getElementById('connLabel').textContent = connected ? 'Da ket noi' : 'Chua ket noi';
+        const runningCount = (data.jobs || []).filter(j => j.status === 'running').length;
+        const doneCount = (data.jobs || []).filter(j => j.status === 'done').length;
+        document.getElementById('statSummary').textContent = `Tong: ${(data.jobs || []).length} | Xong: ${doneCount}`;
+        document.getElementById('statRunning').innerHTML = running ? `<span class="spinner"></span> Dang chay ${runningCount} job...` : '';
+      }).catch(() => { });
+      refreshMachines();
+    }
+
+    function openCookieModal() {
+      document.getElementById('cookieModal').classList.add('active');
+    }
+    function closeCookieModal() {
+      document.getElementById('cookieModal').classList.remove('active');
+    }
+    function importCookie() {
+      const raw = document.getElementById('cookieInput').value.trim();
+      if (!raw) return;
+      let parsed;
+      try { parsed = JSON.parse(raw); } catch (e) { alert('JSON khong hop le!'); return; }
+      fetch(API + '/api/cookie/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookies: parsed })
+      }).then(r => r.json()).then(d => {
+        if (d.ok) { closeCookieModal(); refresh(); }
+        else alert('Luu that bai: ' + d.error);
+      });
+    }
+
+    document.getElementById('cookieModal').addEventListener('click', function (e) {
+      if (e.target === this) closeCookieModal();
+    });
+
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Captcha Client Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 360px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #2d3748;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            margin: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 24px 20px;
+            color: white;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+        }
+
+        .header .subtitle {
+            font-size: 13px;
+            opacity: 0.95;
+            font-weight: 400;
+        }
+
+        .body {
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #a0aec0;
+            margin-bottom: 12px;
+        }
+
+        .card {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 16px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .setting-item:first-child {
+            padding-top: 0;
+        }
+
+        .setting-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .setting-icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .setting-text {
+            flex: 1;
+        }
+
+        .setting-text .label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2d3748;
+            display: block;
+        }
+
+        .setting-text .desc {
+            font-size: 11px;
+            color: #718096;
+            margin-top: 2px;
+            display: block;
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .switch-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: #cbd5e0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 26px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .switch-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .switch input:checked + .switch-slider {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .switch input:checked + .switch-slider:before {
+            transform: translateX(22px);
+        }
+
+        .switch input:disabled + .switch-slider {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Number Input */
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            transition: all 0.2s;
+        }
+
+        .input-group:focus-within {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-group input {
+            width: 50px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            text-align: center;
+            color: #2d3748;
+            background: transparent;
+        }
+
+        .input-group input:focus {
+            outline: none;
+        }
+
+        .input-group input:disabled {
+            opacity: 0.5;
+        }
+
+        .input-unit {
+            font-size: 13px;
+            color: #718096;
+            font-weight: 500;
+        }
+
+        /* Button */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(72, 187, 120, 0.3);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: white;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .info-box {
+            background: #edf2f7;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 12px;
+        }
+
+        .info-box p {
+            font-size: 12px;
+            color: #4a5568;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 16px;
+            background: #f7fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* Select Dropdown */
+        .mode-select {
+            padding: 8px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #2d3748;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 160px;
+        }
+
+        .mode-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .mode-select:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <h1>🛡️ Captcha Client</h1>
+                <p class="subtitle">Auto Loader & Reloader</p>
+            </div>
+        </div>
+
+        <div class="body">
+            <div class="section">
+                <div class="section-title">⚙️ Configuration</div>
+                <div class="card">
+                    <div class="setting-item" id="operationModeRow">
+                        <div class="setting-label">
+                            <span class="setting-icon">🎛️</span>
+                            <div class="setting-text">
+                                <span class="label">Operation Mode</span>
+                                <span class="desc">Cookie Sync: gửi cookie, không giải captcha. Captcha: giải captcha, không gửi cookie.</span>
+                            </div>
+                        </div>
+                        <select id="operationMode" class="mode-select">
+                            <option value="cookie">🍪 Cookie Sync</option>
+                            <option value="captcha">🔓 Captcha Solver</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <span class="setting-icon">⚡</span>
+                            <div class="setting-text">
+                                <span class="label">Enable Extension</span>
+                                <span class="desc">Turn on/off the extension</span>
+                            </div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="enabled">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item" id="serverUrlRow">
+                        <div class="setting-label" style="flex: unset; width: 100%; margin-bottom: 8px;">
+                            <span class="setting-icon">🌐</span>
+                            <div class="setting-text">
+                                <span class="label">Server API URL</span>
+                                <span class="desc">Where the Python server is running</span>
+                            </div>
+                        </div>
+                        <div class="input-group" style="width: 100%;">
+                            <input type="text" id="serverUrl" placeholder="http://localhost:8080" style="width: 100%; font-size: 14px; text-align: left;" value="http://localhost:8080">
+                        </div>
+                    </div>
+
+                    <div class="setting-item" id="autoReloadRow">
+                        <div class="setting-label">
+                            <span class="setting-icon">🔄</span>
+                            <div class="setting-text">
+                                <span class="label">Auto Reload</span>
+                                <span class="desc">Reload page automatically</span>
+                            </div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="autoReload">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item" id="intervalRow">
+                        <div class="setting-label">
+                            <span class="setting-icon">⏱️</span>
+                            <div class="setting-text">
+                                <span class="label">Reload Interval</span>
+                                <span class="desc">Time between reloads</span>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <input type="number" id="reloadInterval" min="1" max="60" value="5">
+                            <span class="input-unit">min</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <span class="setting-icon">🗑️</span>
+                            <div class="setting-text">
+                                <span class="label">Clear grecaptcha After Request</span>
+                                <span class="desc">Remove _grecaptcha from localStorage</span>
+                            </div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="clearGrecaptcha">
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">🎯 Actions</div>
+                <button class="btn" id="saveSettings" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); margin-bottom: 10px;">
+                    <span>💾</span>
+                    <span>Save & Reload</span>
+                </button>
+                <button class="btn" id="reloadNow">
+                    <span>🔄</span>
+                    <span>Reload Page Now</span>
+                </button>
+                <div class="info-box">
+                    <p>💡 Click <strong>Save & Reload</strong> to apply changes. Settings are cached until page reload.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                <span>Active & Running</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

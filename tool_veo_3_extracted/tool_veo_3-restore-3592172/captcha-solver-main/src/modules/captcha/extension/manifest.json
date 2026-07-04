@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Captcha Client Auto Loader",
+  "version": "1.1.0",
+  "description": "Auto load captcha client script, cookie sync, and reload page periodically",
+  "permissions": [
+    "storage",
+    "alarms",
+    "webRequest",
+    "cookies",
+    "tabs",
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://labs.google/*",
+    "https://*.googleapis.com/*",
+    "https://grok.com/*",
+    "https://*.grok.com/*",
+    "http://localhost:8080/*",
+    "http://127.0.0.1:8080/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://labs.google/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["https://labs.google/*"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

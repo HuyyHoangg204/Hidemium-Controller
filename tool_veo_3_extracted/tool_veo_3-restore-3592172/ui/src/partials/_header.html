@@ -1,0 +1,49 @@
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col relative overflow-hidden bg-[#f8fafc]">
+            <header
+                class="h-[72px] flex items-center px-8 border-b border-slate-200 bg-white justify-between z-10 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg flex items-center justify-center shadow-[0_4px_10px_rgba(99,102,241,0.4)] shrink-0">
+                        <i class="fa-solid fa-shield-halved text-sm text-white"></i>
+                    </div>
+
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2"
+                        x-show="mediaPages.includes(activeMenu)"><i class="fa-solid text-indigo-500 text-lg" :class="currentMediaMenuItem?.icon || 'fa-wand-magic-sparkles'"></i> <span x-text="currentMediaMenuItem?.label || 'Sáng tạo Media'"></span></h2>
+
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2"
+                        x-show="activeMenu === 'gallery'"><i class="fa-solid fa-images text-indigo-500 text-lg"></i> Kho ảnh cá nhân</h2>
+
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2"
+                        x-show="activeMenu === 'users'"><i class="fa-solid fa-users text-indigo-500 text-lg"></i> Quản lý Nhân sự</h2>
+
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2"
+                        x-show="activeMenu === 'veo_accounts'"><i
+                            class="fa-solid fa-shield-halved text-indigo-500 text-lg"></i> Quản lý Cookie & Proxy Pool</h2>
+
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2"
+                        x-show="activeMenu === 'account_tokens'"><i class="fa-solid fa-key text-indigo-500 text-lg"></i> Theo dõi Token Account</h2>
+
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2"
+                        x-show="activeMenu === 'job_results'"><i class="fa-solid fa-list-check text-indigo-500 text-lg"></i> Danh sách Job API</h2>
+
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2"
+                        x-show="activeMenu === 'queue_monitor'"><i
+                            class="fa-solid fa-chart-bar text-indigo-500 text-lg"></i> Giám Sát Queue</h2>
+
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2"
+                        x-show="activeMenu === 'machine_registry'"><i
+                            class="fa-solid fa-server text-indigo-500 text-lg"></i> Machine Registry</h2>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <template x-for="perm in currentUser?.permissions || []" :key="perm">
+                        <span
+                            class="text-[10px] uppercase bg-white text-slate-600 px-2 py-1 rounded border border-slate-200"
+                            x-text="perm.split('_')[0]"></span>
+                    </template>
+                    <button @click="localStorage.removeItem('vietauto_apikey'); isLoggedIn = false; currentUser = null; window.history.replaceState(null, null, '/login')" class="px-3 py-2 rounded-lg text-sm font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors">
+                        Đăng xuất
+                    </button>
+                </div>
+            </header>

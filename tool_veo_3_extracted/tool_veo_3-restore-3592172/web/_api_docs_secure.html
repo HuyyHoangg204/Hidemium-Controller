@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NathaMedia API Documentation</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f1117;--card:#1a1d28;--card2:#22262f;--border:#2d3140;--text:#e2e8f0;--text2:#94a3b8;--accent:#6366f1;--accent2:#818cf8;--green:#22c55e;--red:#ef4444;--orange:#f59e0b;--blue:#3b82f6}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+.container{max-width:960px;margin:0 auto;padding:24px 20px}
+h1{font-size:28px;font-weight:700;margin-bottom:8px}
+h2{font-size:22px;font-weight:600;margin:40px 0 16px;padding-top:24px;border-top:1px solid var(--border)}
+h3{font-size:17px;font-weight:600;margin:24px 0 12px;color:var(--accent2)}
+p{color:var(--text2);margin-bottom:12px;font-size:14px}
+a{color:var(--accent2);text-decoration:none}
+
+/* API Key Box */
+.api-key-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin:20px 0}
+.api-key-box h3{margin:0 0 12px;color:var(--text)}
+.key-display{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px}
+.key-display code{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--green);flex:1;word-break:break-all}
+.key-display button{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:500;white-space:nowrap}
+.key-display button:hover{background:var(--accent2)}
+
+/* Base URL */
+.base-url{background:linear-gradient(135deg,#1e1b4b,#312e81);border:1px solid #4338ca;border-radius:10px;padding:16px 20px;margin:16px 0}
+.base-url code{font-family:'JetBrains Mono',monospace;font-size:15px;color:#a5b4fc;font-weight:500}
+
+/* Endpoint Card */
+.endpoint{background:var(--card);border:1px solid var(--border);border-radius:12px;margin:20px 0;overflow:hidden}
+.endpoint-header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);cursor:pointer}
+.endpoint-header:hover{background:var(--card2)}
+.method{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;padding:4px 10px;border-radius:4px;text-transform:uppercase}
+.method.get{background:#064e3b;color:#34d399}
+.method.post{background:#1e3a5f;color:#60a5fa}
+.method.delete{background:#4c1d1d;color:#f87171}
+.path{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:500;color:var(--text)}
+.endpoint-desc{font-size:13px;color:var(--text2);margin-left:auto}
+.endpoint-body{padding:20px;display:none}
+.endpoint.open .endpoint-body{display:block}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th{text-align:left;padding:8px 12px;background:var(--bg);color:var(--text2);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:0.5px}
+td{padding:8px 12px;border-top:1px solid var(--border)}
+td code{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--accent2)}
+.required{color:var(--red);font-size:11px;font-weight:600}
+.optional{color:var(--text2);font-size:11px}
+.type{color:var(--orange);font-size:12px;font-family:'JetBrains Mono',monospace}
+
+/* Code blocks */
+.code-block{position:relative;margin:12px 0}
+.code-block pre{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.7;color:#e2e8f0}
+.code-block .copy-btn{position:absolute;top:8px;right:8px;background:var(--card2);color:var(--text2);border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;font-size:11px}
+.code-block .copy-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.code-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
+
+/* Section label */
+.section-label{display:inline-block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;padding:4px 10px;border-radius:4px;margin-bottom:8px}
+.section-label.req{background:#1e3a5f;color:#60a5fa}
+.section-label.res{background:#064e3b;color:#34d399}
+
+/* Badges */
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+.badge-success{background:#064e3b;color:#34d399}
+.badge-error{background:#4c1d1d;color:#f87171}
+
+/* Arrow */
+.arrow{color:var(--text2);font-size:18px;margin-left:auto;transition:transform .2s}
+.endpoint.open .arrow{transform:rotate(90deg)}
+
+/* Steps */
+.steps{counter-reset:step}
+.step{position:relative;padding-left:40px;margin:16px 0}
+.step::before{counter-increment:step;content:counter(step);position:absolute;left:0;width:28px;height:28px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+
+/* Nav */
+.nav{position:fixed;top:0;left:0;right:0;background:rgba(15,17,23,.9);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);z-index:100;padding:12px 0}
+.nav-inner{max-width:960px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:16px}
+.nav-logo{font-weight:700;font-size:16px;color:var(--text)}
+.nav-logo span{color:var(--accent2)}
+.main{padding-top:64px}
+
+/* Note box */
+.note{background:#1e293b;border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:12px 16px;margin:12px 0;font-size:13px;color:var(--text2)}
+.note code{background:var(--bg);padding:1px 5px;border-radius:3px;font-size:12px;color:var(--accent2);font-family:'JetBrains Mono',monospace}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+<div class="nav-inner">
+  <div class="nav-logo">Natha<span>Media</span> API Docs</div>
+  <span style="color:var(--text2);font-size:13px">v1.0</span>
+</div>
+</nav>
+
+<div class="main">
+<div class="container">
+
+<!-- Header -->
+<h1>📖 NathaMedia API Documentation</h1>
+<p>Quản lý API key và tích hợp dịch vụ tạo Video/Ảnh AI của NathaMedia</p>
+
+<!-- API Key Management -->
+<div class="api-key-box">
+  <h3>🔑 API Key Management</h3>
+  <p>Quản lý API key để truy cập dịch vụ NathaMedia</p>
+  <div class="key-display">
+    <code id="apiKeyText">ak_live_••••••••••••••••••••••••••••••••</code>
+    <button onclick="toggleKey()">Hiện</button>
+    <button onclick="copyKey()">Copy</button>
+  </div>
+</div>
+
+<!-- Auth Section -->
+<h2>🔐 Xác thực (Authentication)</h2>
+<p>API sử dụng xác thực bằng Bearer Token. Liên hệ Admin NathaMedia để nhận API Key.</p>
+
+<div class="base-url">
+  <div style="color:#a5b4fc;font-size:12px;font-weight:600;margin-bottom:4px">URL CƠ SỞ (BASE URL)</div>
+  <code>https://nathamedia.net/api</code><br>
+  <code style="font-size:12px;color:var(--text2);opacity:0.8">Hoặc localhost: http://localhost:8080/api</code>
+</div>
+
+<div class="steps">
+  <div class="step"><strong>Lấy API Key</strong> — Sử dụng phần quản lý API key ở phía trên hoặc liên hệ Admin.</div>
+  <div class="step"><strong>Thêm vào Header</strong> — Bao gồm các headers sau trong mọi request:</div>
+</div>
+
+<div class="code-block">
+  <pre>Authorization: Bearer &lt;api-key-của-bạn&gt;
+Content-Type: application/json</pre>
+</div>
+
+<div class="note">
+  📌 <strong>Response format chuẩn:</strong> Tất cả response đều có dạng <code>{"success": true, "data": {...}}</code> hoặc <code>{"success": false, "error": "...", "code": 400}</code>
+</div>
+
+<!-- ============= ENDPOINTS ============= -->
+
+<h2>📡 Endpoints</h2>
+
+<!-- GET /me -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method get">GET</span>
+  <span class="path">/me</span>
+  <span class="endpoint-desc">Thông tin tài khoản</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <div class="section-label res">Response (200)</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": {
+    "api_key": "ak_live_••...",
+    "username": "user",
+    "role": "ADMIN",
+    "permissions": ["CREATE_VIDEO", "VIEW_VIDEO", "SHARE_VIDEO"],
+    "status": "active"
+  }
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="note">
+    📌 <code>api_key</code> chỉ hiển thị 8 ký tự đầu + "..." để bảo mật.<br>
+    📌 <code>role</code>: <code>ADMIN</code> | <code>DEV</code> | <code>TESTER</code><br>
+    📌 <code>status</code>: <code>active</code> | <code>inactive</code>
+  </div>
+  <div class="code-label">cURL Example</div>
+  <div class="code-block"><pre>curl -X GET "https://nathamedia.net/api/me" \
+  -H "Authorization: Bearer {{token}}"</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+</div>
+</div>
+
+<!-- POST /veo/account-session -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method post">POST</span>
+  <span class="path">/veo/account-session</span>
+  <span class="endpoint-desc">Lấy token + project_id của Veo account được gán</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <p>
+    Endpoint này dùng cho worker/client bên ngoài cần lấy trực tiếp
+    <code>token</code> và <code>project_id</code> của tài khoản Veo đã được gán theo API key.
+  </p>
+  <div class="note">
+    📌 <strong>Logic chống trùng account:</strong><br>
+    Nếu user đã có Veo account được gán thì gọi lại sẽ vẫn trả đúng account đó.<br>
+    Nếu user chưa có account thì hệ thống tự lấy 1 account active còn rảnh và gán cố định cho user đó.<br>
+    User khác gọi bằng API key khác sẽ không lấy trùng account đã gán.
+  </div>
+  <table>
+    <tr><th>Header</th><th></th><th>Type</th><th>Mô tả</th></tr>
+    <tr><td><code>X-API-Key</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>API key của user cần lấy session</td></tr>
+    <tr><td><code>Content-Type</code></td><td><span class="optional">optional</span></td><td><span class="type">string</span></td><td><code>application/json</code></td></tr>
+  </table>
+  <div class="section-label req">Request Body</div>
+  <div class="code-block"><pre>{}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="section-label res">Response (200)</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": {
+    "token": "ya29.xxx",
+    "project_id": "project_xxx",
+    "account_name": "Account 1"
+  }
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="section-label res">Response lỗi</div>
+  <div class="code-block"><pre>{
+  "success": false,
+  "error": "No active free Veo account is available",
+  "code": "NO_AVAILABLE_ACCOUNT"
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="note">
+    📌 <code>NO_AVAILABLE_ACCOUNT</code>: không còn Veo account active rảnh để gán.<br>
+    📌 <code>SESSION_UNAVAILABLE</code>: account đã gán nhưng không lấy được token hoặc project_id.<br>
+    📌 Có thể dùng <code>Authorization: Bearer API_KEY</code>, nhưng endpoint này khuyến nghị dùng <code>X-API-Key</code>.
+  </div>
+  <div class="code-label">cURL Example</div>
+  <div class="code-block"><pre>curl -X POST "https://nathamedia.net/api/veo/account-session" \
+  -H "X-API-Key: {{token}}" \
+  -H "Content-Type: application/json" \
+  -d '{}'</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="code-label">Code Demo (JavaScript)</div>
+  <div class="code-block"><pre>async function getVeoAccountSession() {
+  const response = await fetch('https://nathamedia.net/api/veo/account-session', {
+    method: 'POST',
+    headers: {
+      'X-API-Key': API_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({})
+  });
+
+  const result = await response.json();
+  if (!result.success) throw new Error(result.code || result.error);
+
+  const { token, project_id } = result.data;
+  console.log('Veo token:', token);
+  console.log('Project ID:', project_id);
+  return result.data;
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+</div>
+</div>
+
+<!-- GET /veo/projects -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method get">GET</span>
+  <span class="path">/veo/projects</span>
+  <span class="endpoint-desc">Danh sách dự án</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <div class="section-label res">Response (200)</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid-project",
+      "name": "project_name",
+      "created_at": 1711900000,
+      "updated_at": 1711900000,
+      "video_count": 0,
+      "total_videos": 8,
+      "completed_count": 5,
+      "failed_count": 1,
+      "pending_count": 2,
+      "completed_images_count": 5
+    }
+  ]
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="note">
+    📌 <code>completed_count</code>: Số task COMPLETED<br>
+    📌 <code>failed_count</code>: Số task FAILED + ERROR<br>
+    📌 <code>pending_count</code>: Số task PENDING + PROCESSING<br>
+    📌 <code>completed_images_count</code>: Số ảnh thực tế đã tạo (dành cho project tạo ảnh, có thể &gt; completed_count nếu count &gt; 1)
+  </div>
+  <div class="code-label">cURL Example</div>
+  <div class="code-block"><pre>curl -X GET "https://nathamedia.net/api/veo/projects" \
+  -H "Authorization: Bearer {{token}}"</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+</div>
+</div>
+
+<!-- POST /veo/project -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method post">POST</span>
+  <span class="path">/veo/project</span>
+  <span class="endpoint-desc">Tạo dự án</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <table><tr><th>Field</th><th></th><th>Type</th><th>Mô tả</th></tr>
+  <tr><td><code>name</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>Tên dự án</td></tr>
+  </table>
+  <div class="section-label req">Request Body</div>
+  <div class="code-block"><pre>{
+  "name": "Tên dự án"
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="section-label res">Response (201 Created)</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": {
+    "id": "uuid-project",
+    "name": "Tên dự án",
+    "created_at": 1711900000.123,
+    "updated_at": 1711900000.123,
+    "video_count": 0,
+    "total_videos": 0
+  }
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+</div>
+</div>
+
+<!-- POST /veo/project/batch-create -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method post">POST</span>
+  <span class="path">/veo/project/batch-create</span>
+  <span class="endpoint-desc">⚡ Tạo dự án & nạp prompt hàng loạt</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <p>Tạo một dự án mới và đưa hàng loạt prompts vào hàng chờ xử lý ngay lập tức.</p>
+  <table>
+    <tr><th>Field</th><th></th><th>Type</th><th>Mô tả</th></tr>
+    <tr><td><code>name</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>Tên dự án</td></tr>
+    <tr><td><code>prompts</code></td><td><span class="required">required</span></td><td><span class="type">string[]</span></td><td>Mảng các câu lệnh (prompts)</td></tr>
+    <tr><td><code>model</code></td><td><span class="optional">optional</span></td><td><span class="type">string</span></td><td>Tạo Video: <code>VEO_3.1_FAST</code> | Tạo Ảnh: <code>NARWHAL</code></td></tr>
+    <tr><td><code>screen_ratio</code></td><td><span class="optional">optional</span></td><td><span class="type">string</span></td><td><code>16:9</code> | <code>9:16</code> | <code>1:1</code></td></tr>
+    <tr><td><code>videos_per_prompt</code></td><td><span class="optional">optional</span></td><td><span class="type">int</span></td><td>Số lượng ảnh/video cho mỗi prompt (Mặc định: 1)</td></tr>
+    <tr><td><code>upsample_resolution</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>null</code> | <code>2K</code> | <code>4K</code> — Upscale ảnh đầu ra (Google Imagen)</td></tr>
+  </table>
+
+  <div class="section-label req">Request Body (Tạo Ảnh)</div>
+  <div class="code-block"><pre>{
+  "name": "Dự án ảnh nghệ thuật",
+  "prompts": [
+    "A majestic lion in the jungle",
+    "A futuristic city with flying cars"
+  ],
+  "model": "NARWHAL",
+  "screen_ratio": "16:9",
+  "videos_per_prompt": 1,
+  "upsample_resolution": "4K"
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+
+  <div class="section-label res">Response (201 Created)</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": {
+    "id": "uuid-project-123",
+    "name": "Dự án ảnh nghệ thuật",
+    "created_at": 1711234567.89,
+    "video_count": 0,
+    "total_videos": 2
+  }
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+
+  <div class="note">
+    📌 Đây là phương thức <strong>Bất đồng bộ (Async)</strong>. Hãy dùng <code>id</code> trả về để polling trạng thái tại <code>/api/veo/videos?project_id=...</code>
+  </div>
+</div>
+</div>
+
+<!-- GET /veo/video -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method get">GET</span>
+  <span class="path">/veo/video</span>
+  <span class="endpoint-desc">Kiểm tra trạng thái video task (Polling)</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <table><tr><th>Query Param</th><th></th><th>Type</th><th>Mô tả</th></tr>
+  <tr><td><code>task_id</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>UUID của video task</td></tr>
+  </table>
+  <p style="margin-top:12px"><strong>Các giá trị status:</strong> <span class="badge badge-success">PENDING</span> <span class="badge badge-success">PROCESSING</span> <span class="badge badge-success">COMPLETED</span> <span class="badge badge-error">FAILED</span></p>
+  <div class="section-label res">Response (200) — Task đã COMPLETED</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": {
+    "id": "uuid-task",
+    "project_id": "uuid-project",
+    "name": "video name",
+    "action_type": "TEXT_TO_VIDEO",
+    "model": "VEO_3.1_FAST",
+    "screen_ratio": "16:9",
+    "prompts": ["prompt text"],
+    "status": "COMPLETED",
+    "created_at": 1711900000.0,
+    "updated_at": 1711900100.0,
+    "media_id": "https://... hoặc local-path",
+    "output_filename": "video_abc123.mp4",
+    "error": null,
+    "image_refs": null,
+    "completed_at": 1711900100.0,
+    "picked_account_name": "Account 1",
+    "source": null,
+    "image_paths": null
+  }
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="note">
+    📌 <strong>Đây là endpoint dùng để Polling.</strong> Gọi mỗi <strong>10 giây</strong> cho đến khi <code>status</code> = <code>COMPLETED</code> hoặc <code>FAILED</code>.<br>
+    📌 <code>media_id</code>: URL hoặc đường dẫn file — chỉ có giá trị khi <code>status = COMPLETED</code>.<br>
+    📌 <code>action_type</code>: <code>TEXT_TO_VIDEO</code> | <code>IMAGE_TO_VIDEO</code> | <code>FRAMES_TO_VIDEO</code> | <code>CREATE_IMAGE</code><br>
+    📌 <code>image_paths</code>: Mảng đường dẫn ảnh (chỉ có với <code>CREATE_IMAGE</code> đã hoàn thành).
+  </div>
+  <div class="code-label">cURL Example</div>
+  <div class="code-block"><pre>curl -X GET "https://nathamedia.net/api/veo/video?task_id=UUID" \
+  -H "Authorization: Bearer {{token}}"</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+</div>
+</div>
+
+<!-- POST /veo/text-to-video -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method post">POST</span>
+  <span class="path">/veo/text-to-video</span>
+  <span class="endpoint-desc">Tạo video từ văn bản</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <p>Hỗ trợ cả <code>application/json</code> và <code>multipart/form-data</code>.</p>
+  <table><tr><th>Field</th><th></th><th>Type</th><th>Mô tả</th></tr>
+  <tr><td><code>project_id</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>UUID của Project (lấy từ <code>POST /veo/project</code>)</td></tr>
+  <tr><td><code>name</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>Tên video</td></tr>
+  <tr><td><code>model</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>VEO_3.1_FAST</code> (mặc định) | <code>VEO_3.1_FAST_LOWER_PRIORITY</code> | <code>VEO_3.1_QUALITY</code></td></tr>
+  <tr><td><code>screen_ratio</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>16:9</code> (mặc định) | <code>9:16</code></td></tr>
+  <tr><td><code>prompts</code></td><td><span class="required">required</span></td><td><span class="type">string[]</span></td><td>Mảng prompt mô tả video</td></tr>
+  </table>
+  <div class="section-label req">Request Body</div>
+  <div class="code-block"><pre>{
+  "project_id": "uuid-project",
+  "name": "video name",
+  "model": "VEO_3.1_FAST",
+  "screen_ratio": "16:9",
+  "prompts": ["A cat walking in the rain, cinematic lighting"]
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="section-label res">Response (202 Accepted)</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": {
+    "id": "uuid-task",
+    "project_id": "uuid-project",
+    "name": "video name",
+    "action_type": "TEXT_TO_VIDEO",
+    "model": "VEO_3.1_FAST",
+    "screen_ratio": "16:9",
+    "prompts": ["A cat walking in the rain, cinematic lighting"],
+    "status": "PENDING",
+    "created_at": 1711900000.0,
+    "updated_at": 1711900000.0,
+    "media_id": null,
+    "output_filename": null,
+    "error": null,
+    "image_refs": null,
+    "completed_at": null,
+    "picked_account_name": null,
+    "source": null,
+    "image_paths": null
+  }
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="note">
+    📌 Sau khi nhận <code>id</code> (task_id), gọi <code>GET /api/veo/video?task_id={id}</code> mỗi <strong>10 giây</strong> để kiểm tra trạng thái.
+  </div>
+  <div class="code-label">Code Demo (JavaScript)</div>
+  <div class="code-block"><pre>async function textToVideo() {
+  const response = await fetch('https://nathamedia.net/api/veo/text-to-video', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      project_id: 'uuid-project',
+      name: 'testing',
+      model: 'VEO_3.1_FAST',
+      screen_ratio: '16:9',
+      prompts: ['A cat walking in the rain']
+    })
+  });
+  const result = await response.json();
+  const taskId = result.data.id;
+
+  // Polling: gọi GET /api/veo/video?task_id=... mỗi 10s
+  const poll = setInterval(async () => {
+    const status = await fetch(
+      `https://nathamedia.net/api/veo/video?task_id=${taskId}`,
+      { headers: { 'Authorization': `Bearer ${API_KEY}` } }
+    ).then(r => r.json());
+
+    console.log('Status:', status.data.status);
+    if (status.data.status === 'COMPLETED' || status.data.status === 'FAILED') {
+      clearInterval(poll);
+      if (status.data.status === 'COMPLETED') {
+        console.log('Download:', `https://nathamedia.net/api/veo/download/${taskId}`);
+      }
+    }
+  }, 10000);
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+</div>
+</div>
+
+<!-- POST /veo/image-to-video (multipart) -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method post">POST</span>
+  <span class="path">/veo/image-to-video</span>
+  <span class="endpoint-desc">Tạo video từ ảnh (multipart/form-data)</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <p>Gửi ảnh qua <code>multipart/form-data</code>. KHÔNG dùng JSON.</p>
+  <table><tr><th>Field</th><th></th><th>Type</th><th>Mô tả</th></tr>
+  <tr><td><code>project_id</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>Project ID</td></tr>
+  <tr><td><code>name</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>Tên video</td></tr>
+  <tr><td><code>model</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>VEO_3.1_FAST</code> (mặc định) — truyền qua form field</td></tr>
+  <tr><td><code>screen_ratio</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>16:9</code> (mặc định) | <code>9:16</code></td></tr>
+  <tr><td><code>prompts[]</code></td><td><span class="required">required</span></td><td><span class="type">string[]</span></td><td>Mảng prompt (form-data list)</td></tr>
+  <tr><td><code>file</code></td><td><span class="required">required</span></td><td><span class="type">file</span></td><td>File ảnh (jpg/png)</td></tr>
+  </table>
+  <div class="code-label">Code Demo (Node.js)</div>
+  <div class="code-block"><pre>const FormData = require('form-data');
+const fs = require('fs');
+
+async function imageToVideo() {
+  const form = new FormData();
+  form.append('project_id', 'uuid-project');
+  form.append('name', 'video from image');
+  form.append('model', 'VEO_3.1_FAST');
+  form.append('screen_ratio', '16:9');
+  form.append('prompts[]', 'Camera slowly zooms out');
+  form.append('file', fs.createReadStream('./image.jpg'));
+
+  const response = await axios.post(
+    'https://nathamedia.net/api/veo/image-to-video',
+    form,
+    { headers: { 'Authorization': `Bearer ${API_KEY}`, ...form.getHeaders() } }
+  );
+  console.log('Task ID:', response.data.data.id);
+  // Polling tương tự text-to-video
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="section-label res">Response (202 Accepted)</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": {
+    "id": "uuid-task",
+    "project_id": "uuid-project",
+    "name": "video from image",
+    "action_type": "IMAGE_TO_VIDEO",
+    "model": "VEO_3.1_FAST",
+    "screen_ratio": "16:9",
+    "prompts": ["Camera slowly zooms out"],
+    "status": "PENDING",
+    "created_at": 1711900000.0,
+    "updated_at": 1711900000.0,
+    "media_id": null,
+    "output_filename": null,
+    "error": null,
+    "image_refs": null,
+    "completed_at": null,
+    "picked_account_name": null,
+    "source": null,
+    "image_paths": null
+  }
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+</div>
+</div>
+
+<!-- POST /veo/create-i2v (JSON Base64) -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method post">POST</span>
+  <span class="path">/veo/create-i2v</span>
+  <span class="endpoint-desc">Tạo video từ ảnh Base64 (JSON)</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <p>Endpoint thay thế cho image-to-video, gửi ảnh dạng Base64 qua JSON thay vì multipart. Hỗ trợ nhiều ảnh cùng lúc.</p>
+  <table><tr><th>Field</th><th></th><th>Type</th><th>Mô tả</th></tr>
+  <tr><td><code>project_id</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>Project ID</td></tr>
+  <tr><td><code>images_b64</code></td><td><span class="required">required</span></td><td><span class="type">object[]</span></td><td>Mảng <code>{b64, mime, name}</code> hoặc <code>{url, name}</code> hoặc <code>{path, name}</code></td></tr>
+  <tr><td><code>prompt</code></td><td><span class="optional">optional</span></td><td><span class="type">string</span></td><td>Mô tả chuyển động</td></tr>
+  <tr><td><code>model</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>VEO_3.1_I2V_FAST</code> (mặc định) | <code>VEO_3.1_I2V_QUALITY</code></td></tr>
+  <tr><td><code>screen_ratio</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>16:9</code> (mặc định) | <code>9:16</code></td></tr>
+  <tr><td><code>mode</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>multi</code> (mặc định, mỗi ảnh 1 video, tối đa 10) | <code>frames</code> (start→end frame, 2 ảnh)</td></tr>
+  </table>
+  <div class="section-label req">Request Body</div>
+  <div class="code-block"><pre>{
+  "project_id": "uuid-project",
+  "prompt": "Camera slowly zooms out, wind blowing",
+  "model": "VEO_3.1_I2V_FAST",
+  "screen_ratio": "16:9",
+  "mode": "multi",
+  "images_b64": [
+    {
+      "b64": "iVBORw0KGgo...",
+      "mime": "image/jpeg",
+      "name": "photo.jpg"
+    }
+  ]
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <p style="color:var(--orange);margin-top:8px">⚠️ Trường <code>b64</code> là chuỗi Base64 thuần, KHÔNG bao gồm tiền tố <code>data:image/...;base64,</code></p>
+  <div class="note">
+    📌 <code>images_b64</code> hỗ trợ 3 loại input:<br>
+    • <code>{"b64": "...", "mime": "image/jpeg", "name": "file.jpg"}</code> — Base64 trực tiếp<br>
+    • <code>{"url": "https://...", "name": "file.jpg"}</code> — URL tải ảnh (hỗ trợ Google Drive)<br>
+    • <code>{"path": "/local/path/image.jpg", "name": "file.jpg"}</code> — Đường dẫn file trên server
+  </div>
+  <div class="section-label res">Response (202) — 1 ảnh</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": {
+    "id": "uuid-task",
+    "project_id": "uuid-project",
+    "name": "I2V #1: photo.jpg",
+    "action_type": "IMAGE_TO_VIDEO",
+    "model": "VEO_3.1_I2V_FAST",
+    "screen_ratio": "16:9",
+    "prompts": ["Camera slowly zooms out, wind blowing"],
+    "status": "PENDING",
+    "created_at": 1711900000.0,
+    "updated_at": 1711900000.0,
+    "media_id": null,
+    "output_filename": null,
+    "error": null,
+    "image_refs": null,
+    "completed_at": null,
+    "picked_account_name": null,
+    "source": null,
+    "image_paths": null
+  }
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="section-label res">Response (202) — Nhiều ảnh (mode: multi)</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": [
+    { "id": "uuid-task-1", "name": "I2V #1: photo1.jpg", "status": "PENDING", "..." : "..." },
+    { "id": "uuid-task-2", "name": "I2V #2: photo2.jpg", "status": "PENDING", "..." : "..." }
+  ]
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="note">📌 Khi gửi 1 ảnh → <code>data</code> là object đơn. Khi gửi nhiều ảnh → <code>data</code> là mảng các task.</div>
+</div>
+</div>
+
+<!-- POST /veo/frames-to-video -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method post">POST</span>
+  <span class="path">/veo/frames-to-video</span>
+  <span class="endpoint-desc">Video từ start & end frame (multipart)</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <p>Gửi đúng 2 ảnh (start frame + end frame) qua <code>multipart/form-data</code>.</p>
+  <table><tr><th>Field</th><th></th><th>Type</th><th>Mô tả</th></tr>
+  <tr><td><code>project_id</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>Project ID</td></tr>
+  <tr><td><code>name</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>Tên video</td></tr>
+  <tr><td><code>model</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>VEO_3.1_I2V_FAST</code> (mặc định)</td></tr>
+  <tr><td><code>screen_ratio</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>16:9</code> (mặc định) | <code>9:16</code></td></tr>
+  <tr><td><code>prompts[]</code></td><td><span class="optional">optional</span></td><td><span class="type">string[]</span></td><td>Mảng prompt</td></tr>
+  <tr><td><code>files</code></td><td><span class="required">required</span></td><td><span class="type">file[]</span></td><td>Đúng 2 ảnh: index 0 = start, index 1 = end</td></tr>
+  </table>
+  <div class="section-label res">Response (202 Accepted)</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": {
+    "id": "uuid-task",
+    "project_id": "uuid-project",
+    "name": "video name",
+    "action_type": "FRAMES_TO_VIDEO",
+    "model": "VEO_3.1_I2V_FAST",
+    "screen_ratio": "16:9",
+    "prompts": ["transition between frames"],
+    "status": "PENDING",
+    "created_at": 1711900000.0,
+    "updated_at": 1711900000.0,
+    "media_id": null,
+    "output_filename": null,
+    "error": null,
+    "image_refs": null,
+    "completed_at": null,
+    "picked_account_name": null,
+    "source": null,
+    "image_paths": null
+  }
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+</div>
+</div>
+
+<!-- POST /veo/create-image -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method post">POST</span>
+  <span class="path">/veo/create-image</span>
+  <span class="endpoint-desc">Tạo ảnh AI</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <p>Hỗ trợ cả <code>application/json</code> và <code>multipart/form-data</code>.</p>
+  <table><tr><th>Field</th><th></th><th>Type</th><th>Mô tả</th></tr>
+  <tr><td><code>project_id</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>Project ID</td></tr>
+  <tr><td><code>prompt</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>Prompt tạo ảnh</td></tr>
+  <tr><td><code>model</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>NARWHAL</code> (mặc định)</td></tr>
+  <tr><td><code>aspect</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>IMAGE_ASPECT_RATIO_PORTRAIT</code> (mặc định) | <code>IMAGE_ASPECT_RATIO_LANDSCAPE</code></td></tr>
+  <tr><td><code>count</code></td><td><span class="optional">optional</span></td><td><span class="type">int</span></td><td>Số ảnh tạo (1–4, mặc định: 1)</td></tr>
+  <tr><td><code>upsample_resolution</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>null</code> | <code>2K</code> | <code>4K</code> — Upscale ảnh đầu ra (Google Imagen)</td></tr>
+  <tr><td><code>file</code> hoặc <code>images[]</code></td><td><span class="optional">optional</span></td><td><span class="type">file</span></td><td>Ảnh tham chiếu (Gửi qua <code>multipart/form-data</code>)</td></tr>
+  <tr><td><code>image_refs_b64</code></td><td><span class="optional">optional</span></td><td><span class="type">object[]</span></td><td>Ảnh tham chiếu dạng base64 (Gửi qua <code>JSON</code>). Mảng cấu trúc <code>[{"b64": "...", "mime": "image/jpeg"}]</code></td></tr>
+  </table>
+  
+  <div class="section-label req">Request Body (JSON)</div>
+  <div class="code-block"><pre>{
+  "project_id": "uuid-project",
+  "prompt": "A beautiful sunset over the ocean",
+  "model": "NARWHAL",
+  "aspect": "IMAGE_ASPECT_RATIO_LANDSCAPE",
+  "count": 2,
+  "upsample_resolution": "4K",
+  "image_refs_b64": []
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+
+  <div class="code-label">Code Demo: Multipart / Form-Data (Node.js)</div>
+  <div class="code-block"><pre>const FormData = require('form-data');
+const fs = require('fs');
+
+async function createImg() {
+  const form = new FormData();
+  form.append('project_id', 'uuid-project');
+  form.append('prompt', 'Thêm một chú thỏ vào bức ảnh');
+  form.append('file', fs.createReadStream('./reference.jpg'));
+
+  const response = await axios.post(
+    'https://nathamedia.net/api/veo/create-image',
+    form,
+    { headers: { 'Authorization': `Bearer ${API_KEY}`, ...form.getHeaders() } }
+  );
+  console.log('Task ID:', response.data.data.id);
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="section-label res">Response (202 Accepted)</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": {
+    "id": "uuid-task",
+    "project_id": "uuid-project",
+    "name": "NARWHAL: A beautiful sunset over the oce",
+    "action_type": "CREATE_IMAGE",
+    "model": "NARWHAL",
+    "screen_ratio": "IMAGE_ASPECT_RATIO_LANDSCAPE",
+    "prompts": ["A beautiful sunset over the ocean"],
+    "status": "PENDING",
+    "created_at": 1711900000.0,
+    "updated_at": 1711900000.0,
+    "media_id": null,
+    "output_filename": null,
+    "error": null,
+    "image_refs": null,
+    "completed_at": null,
+    "picked_account_name": null,
+    "source": null,
+    "image_paths": null
+  }
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="note">
+    📌 <code>name</code> tự động tạo theo format: <code>{model}: {prompt (40 ký tự đầu)}</code><br>
+    📌 <code>screen_ratio</code> field thực chất chứa giá trị <code>aspect</code> (dùng chung field trong DB).<br>
+    📌 Sau khi COMPLETED, gọi <code>GET /api/veo/video?task_id={id}</code> → <code>image_paths</code> chứa mảng đường dẫn ảnh đã tạo.
+  </div>
+</div>
+</div>
+
+<!-- GET /veo/download/:task_id -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method get">GET</span>
+  <span class="path">/veo/download/:task_id</span>
+  <span class="endpoint-desc">Tải video/ảnh khi COMPLETED</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <p>Khi task có <code>status: "COMPLETED"</code>, gọi endpoint này để tải file trực tiếp.</p>
+  <div class="note">
+    📌 Xác thực qua <strong>Header</strong>: <code>Authorization: Bearer API_KEY</code><br>
+    📌 Nếu <code>media_id</code> là URL → server trả redirect 302 đến URL đó.<br>
+    📌 Nếu <code>media_id</code> là file local → server trả file trực tiếp (<code>video/mp4</code>).<br>
+    📌 Nếu task đang <code>PENDING</code>/<code>PROCESSING</code> → trả HTTP 202 với <code>{"success": false, "error": "Task is still PROCESSING..."}</code><br>
+    📌 Nếu task <code>FAILED</code> → trả HTTP 422 với <code>{"success": false, "error": "Task failed: ..."}</code>
+  </div>
+  <div class="code-label">cURL Example</div>
+  <div class="code-block"><pre># Download khi task COMPLETED
+curl -o video.mp4 "https://nathamedia.net/api/veo/download/TASK_ID" \
+  -H "Authorization: Bearer API_KEY" \
+  -L</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="note">📌 Flag <code>-L</code> để curl tự động follow redirect (khi media_id là URL).</div>
+</div>
+</div>
+
+<!-- POST /veo/generate (All-in-one) -->
+<div class="endpoint" onclick="this.classList.toggle('open')">
+<div class="endpoint-header">
+  <span class="method post">POST</span>
+  <span class="path">/veo/generate</span>
+  <span class="endpoint-desc">⚡ All-in-one: Auto tạo project + task</span>
+  <span class="arrow">›</span>
+</div>
+<div class="endpoint-body" onclick="event.stopPropagation()">
+  <p>Endpoint đơn giản nhất — chỉ cần gửi prompt. Tự động tạo project nếu không truyền <code>project_id</code>. Trả về <code>poll_url</code> và <code>download_url</code> sẵn.</p>
+  <table><tr><th>Field</th><th></th><th>Type</th><th>Mô tả</th></tr>
+  <tr><td><code>prompt</code></td><td><span class="required">required</span></td><td><span class="type">string</span></td><td>Prompt tạo video</td></tr>
+  <tr><td><code>project_id</code></td><td><span class="optional">optional</span></td><td><span class="type">string</span></td><td>UUID project (bỏ qua = tự tạo mới)</td></tr>
+  <tr><td><code>model</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td>Mặc định: <code>VEO_3.1_FAST</code></td></tr>
+  <tr><td><code>screen_ratio</code></td><td><span class="optional">optional</span></td><td><span class="type">enum</span></td><td><code>16:9</code> | <code>9:16</code> (mặc định: <code>9:16</code>)</td></tr>
+  </table>
+  <div class="note">⚠️ Lưu ý: Mặc định <code>screen_ratio</code> ở endpoint này là <code>9:16</code> (Portrait), khác với các endpoint khác mặc định <code>16:9</code>.</div>
+  <div class="section-label req">Request Body</div>
+  <div class="code-block"><pre>{
+  "prompt": "A cat walking in the rain, cinematic",
+  "screen_ratio": "16:9"
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="section-label res">Response (202 Accepted)</div>
+  <div class="code-block"><pre>{
+  "success": true,
+  "data": {
+    "task_id": "uuid-task",
+    "status": "PENDING",
+    "poll_url": "https://nathamedia.net/api/veo/video?task_id=uuid-task",
+    "download_url": "https://nathamedia.net/api/veo/download/uuid-task",
+    "message": "Task queued. Poll poll_url every 10s until status=COMPLETED, then GET download_url for the MP4 file."
+  }
+}</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+  <div class="note">
+    📌 <code>poll_url</code>: URL đầy đủ để polling trạng thái (sử dụng với Bearer header).<br>
+    📌 <code>download_url</code>: URL để tải video khi <code>status = COMPLETED</code> (sử dụng với Bearer header).
+  </div>
+  <div class="code-label">cURL Example</div>
+  <div class="code-block"><pre>curl -X POST "https://nathamedia.net/api/veo/generate" \
+  -H "Authorization: Bearer {{token}}" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "sunset over ocean", "screen_ratio": "16:9"}'</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+</div>
+</div>
+
+<!-- ===== COMPLETE WORKFLOW ===== -->
+<h2>🔄 Luồng tích hợp hoàn chỉnh (Workflow)</h2>
+
+<div class="note" style="background:#1a2332;border-left-color:var(--green)">
+<strong>Cách nhanh nhất — Dùng <code>POST /veo/generate</code>:</strong><br><br>
+
+<strong>Bước 1:</strong> Gọi <code>POST /api/veo/generate</code> với <code>{"prompt": "...", "screen_ratio": "16:9"}</code><br>
+→ Nhận <code>task_id</code>, <code>poll_url</code>, <code>download_url</code><br><br>
+
+<strong>Bước 2:</strong> Gọi <code>GET {poll_url}</code> mỗi 10 giây (kèm Bearer header)<br>
+→ Kiểm tra <code>data.status</code>: <code>PENDING</code> → <code>PROCESSING</code> → <code>COMPLETED</code><br><br>
+
+<strong>Bước 3:</strong> Khi <code>status = COMPLETED</code> → Gọi <code>GET {download_url}</code> (kèm Bearer header, flag <code>-L</code> cho redirect)<br>
+→ Nhận file .mp4
+</div>
+
+<div class="note" style="background:#1a2332;border-left-color:var(--orange)">
+<strong>Cách chi tiết — Tự quản lý Project:</strong><br><br>
+
+<strong>Bước 1:</strong> <code>POST /api/veo/project</code> → tạo project, nhận <code>project_id</code><br>
+<strong>Bước 2:</strong> <code>POST /api/veo/text-to-video</code> hoặc <code>/image-to-video</code> → gửi task, nhận <code>task_id</code><br>
+<strong>Bước 3:</strong> <code>GET /api/veo/video?task_id={id}</code> → polling mỗi 10s<br>
+<strong>Bước 4:</strong> <code>GET /api/veo/download/{task_id}</code> → tải file khi COMPLETED
+</div>
+
+<!-- Complete Python Example -->
+<h3>📝 Ví dụ hoàn chỉnh (Python)</h3>
+<div class="code-block"><pre>import requests
+import time
+
+API_KEY = "ak_live_your_key_here"
+BASE = "https://nathamedia.net/api"
+HEADERS = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Content-Type": "application/json"
+}
+
+# 1. Tạo video (auto-create project)
+resp = requests.post(f"{BASE}/veo/generate", headers=HEADERS, json={
+    "prompt": "A cat walking in the rain, cinematic lighting",
+    "screen_ratio": "16:9",
+    "model": "VEO_3.1_FAST"
+})
+result = resp.json()
+task_id = result["data"]["task_id"]
+poll_url = result["data"]["poll_url"]
+download_url = result["data"]["download_url"]
+print(f"✅ Task created: {task_id}")
+
+# 2. Polling status (mỗi 10 giây)
+while True:
+    status_resp = requests.get(poll_url, headers=HEADERS)
+    status_data = status_resp.json()["data"]
+    print(f"⏳ Status: {status_data['status']}")
+
+    if status_data["status"] == "COMPLETED":
+        print("🎉 Video completed!")
+        break
+    elif status_data["status"] == "FAILED":
+        print(f"❌ Failed: {status_data.get('error')}")
+        break
+
+    time.sleep(10)
+
+# 3. Download video
+if status_data["status"] == "COMPLETED":
+    video_resp = requests.get(download_url, headers=HEADERS, allow_redirects=True)
+    with open("output.mp4", "wb") as f:
+        f.write(video_resp.content)
+    print("📥 Video saved: output.mp4")</pre><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+
+<!-- Error Codes -->
+<h2>⚠️ Mã Lỗi (Error Codes)</h2>
+<table>
+<tr><th>HTTP Code</th><th>Ý Nghĩa</th></tr>
+<tr><td><code>400</code></td><td>Dữ liệu gửi lên không hợp lệ (thiếu field, sai format) — <code>ValidationError</code></td></tr>
+<tr><td><code>401</code></td><td>API Key không hợp lệ hoặc thiếu — <code>AuthenticationError</code></td></tr>
+<tr><td><code>403</code></td><td>Không có quyền truy cập (role/permission không đủ) — <code>ForbiddenError</code></td></tr>
+<tr><td><code>404</code></td><td>Task hoặc Project không tồn tại</td></tr>
+<tr><td><code>422</code></td><td>Task đã thất bại (khi gọi download endpoint)</td></tr>
+<tr><td><code>429</code></td><td>Quá nhiều request — chờ rồi thử lại — <code>RateLimitError</code></td></tr>
+<tr><td><code>500</code></td><td>Lỗi server nội bộ</td></tr>
+<tr><td><code>502</code></td><td>Lỗi từ Google API upstream — <code>UpstreamError</code></td></tr>
+</table>
+<div class="section-label" style="background:#4c1d1d;color:#f87171;margin-top:16px">Error Response Format</div>
+<div class="code-block"><pre>{
+  "success": false,
+  "error": "Mô tả lỗi chi tiết",
+  "code": 400
+}</pre></div>
+
+<div style="text-align:center;padding:40px 0 20px;color:var(--text2);font-size:13px">
+  © 2026 NathaMedia — API Documentation v1.0
+</div>
+
+</div>
+</div>
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const REAL_KEY = urlParams.get('token') || 'Chưa-có-token-hãy-đăng-nhập-lại';
+let keyVisible = false;
+
+function toggleKey() {
+  keyVisible = !keyVisible;
+  const maskedKey = REAL_KEY.length > 8 ? REAL_KEY.substring(0, 8) + '••••••••••' : '••••••••';
+  document.getElementById('apiKeyText').textContent = keyVisible ? REAL_KEY : maskedKey;
+  event.target.textContent = keyVisible ? 'Ẩn' : 'Hiện';
+}
+
+// Initial state
+document.getElementById('apiKeyText').textContent = REAL_KEY.length > 8 ? REAL_KEY.substring(0, 8) + '••••••••••' : '••••••••';
+
+function copyKey() {
+  navigator.clipboard.writeText(REAL_KEY);
+  event.target.textContent = '✓ Copied!';
+  setTimeout(() => event.target.textContent = 'Copy', 1500);
+}
+
+function copyCode(btn) {
+  const pre = btn.parentElement.querySelector('pre');
+  navigator.clipboard.writeText(pre.textContent);
+  btn.textContent = '✓ Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 1500);
+}
+</script>
+</body>
+</html>

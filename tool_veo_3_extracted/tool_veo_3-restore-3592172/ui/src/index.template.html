@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+{{ include '_head.html' }}
+
+<body class="antialiased h-screen overflow-hidden bg-slate-50 text-slate-800" x-data="app()">
+
+    <!-- Toast Notification -->
+    <div x-cloak x-show="toast.visible" x-transition.opacity.duration.300ms
+        class="fixed top-5 right-5 z-50 px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 transition-colors"
+        :class="toast.type === 'error' ? 'bg-red-500/90' : 'bg-emerald-500/90'">
+        <i class="fa-solid" :class="toast.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'"></i>
+        <span x-text="toast.message" class="font-medium"></span>
+    </div>
+
+    <!-- MAIN APP LAYOUT -->
+    <div class="app-login min-h-screen flex items-center justify-center p-4 relative overflow-hidden" x-cloak
+        x-show="!isLoggedIn">
+        <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary/20 rounded-full blur-[100px]"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-accent/20 rounded-full blur-[100px]"></div>
+
+        {{ include '_login.html' }}
+    </div>
+
+    <div class="app-dashboard flex h-screen overflow-hidden bg-slate-50 font-sans" x-cloak x-show="isLoggedIn">
+
+        <!-- SIDEBAR -->
+        {{ include '_sidebar.html' }}
+
+        <!-- MAIN CONTENT -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+            <!-- HEADER -->
+            {{ include '_header.html' }}
+
+            <!-- PAGE BODY -->
+            <main class="flex-1 overflow-y-auto p-6 space-y-6">
+
+                {{ include '_tab_media_studio.html' }}
+
+                {{ include '_tab_gallery.html' }}
+
+                {{ include '_tab_users.html' }}
+
+                {{ include '_tab_veo_accounts.html' }}
+
+                {{ include '_tab_account_tokens.html' }}
+
+                {{ include '_tab_job_results.html' }}
+
+                {{ include '_tab_queue_monitor.html' }}
+
+                {{ include '_tab_machine_registry.html' }}
+
+            </main>
+        </div>
+
+        {{ include '_modals.html' }}
+
+    </div>
+
+
+{{ include '_app_script.html' }}

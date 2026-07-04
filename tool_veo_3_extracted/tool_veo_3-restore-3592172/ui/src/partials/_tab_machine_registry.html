@@ -1,0 +1,130 @@
+<div x-cloak x-show="activeMenu === 'machine_registry' && isAdmin" class="space-y-3">
+    <section class="rounded-2xl bg-white border border-slate-200 shadow-sm p-3 lg:p-4">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div>
+                <h1 class="text-base font-black text-black flex items-center gap-2">
+                    <span class="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-600 inline-flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-server"></i>
+                    </span>
+                    Worker Machines
+                </h1>
+                <p class="mt-1 text-xs text-slate-700">Check trạng thái đăng ký, heartbeat và xóa machine không dùng nữa.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+                    <input x-model="machineCheckId" @keydown.enter="checkMachine(machineCheckId)" placeholder="machine_id" class="w-full sm:w-44 pl-8 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-black placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 text-xs">
+                </div>
+                <button @click="checkMachine(machineCheckId)" :disabled="checkingMachine" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 text-white font-bold shadow-sm hover:bg-indigo-700 transition disabled:opacity-60 text-xs">
+                    <i class="fa-solid" :class="checkingMachine ? 'fa-spinner fa-spin' : 'fa-circle-check'"></i>
+                    Check
+                </button>
+                <button @click="loadMachines()" :disabled="loadingMachines" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 text-white font-bold shadow-sm hover:bg-slate-800 transition disabled:opacity-60 text-xs">
+                    <i class="fa-solid" :class="loadingMachines ? 'fa-spinner fa-spin' : 'fa-rotate'"></i>
+                    Refresh
+                </button>
+            </div>
+        </div>
+        <div x-show="machineCheckResult" x-transition class="mt-3 rounded-xl border px-3 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2" :class="machineCheckResult?.registered ? 'border-emerald-100 bg-emerald-50' : 'border-rose-100 bg-rose-50'">
+            <div class="font-mono text-xs text-black" x-text="machineCheckResult?.machine_id || '—'"></div>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black w-fit" :class="machineCheckResult?.registered ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'">
+                <span class="w-1.5 h-1.5 rounded-full" :class="machineCheckResult?.registered ? 'bg-emerald-500' : 'bg-rose-500'"></span>
+                <span x-text="machineCheckResult?.registered ? 'Đã đăng ký' : 'Chưa đăng ký'"></span>
+            </span>
+        </div>
+    </section>
+
+    <section class="rounded-2xl bg-gradient-to-r from-slate-50 to-white border border-slate-200 shadow-sm px-4 py-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-2 shadow-sm">
+                <i class="fa-solid fa-layer-group text-slate-500 text-xs"></i>
+                <span class="text-[11px] font-bold uppercase tracking-wide text-slate-500">Total</span>
+                <span class="min-w-6 rounded-full bg-slate-100 px-2 py-0.5 text-center text-xs font-black text-black" x-text="machineSummary.total || 0"></span>
+            </div>
+            <div class="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3.5 py-2 shadow-sm">
+                <i class="fa-solid fa-signal text-emerald-600 text-xs"></i>
+                <span class="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Online</span>
+                <span class="min-w-6 rounded-full bg-emerald-100 px-2 py-0.5 text-center text-xs font-black text-black" x-text="machineSummary.online || 0"></span>
+            </div>
+            <div class="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-3.5 py-2 shadow-sm">
+                <i class="fa-solid fa-circle-check text-indigo-600 text-xs"></i>
+                <span class="text-[11px] font-bold uppercase tracking-wide text-indigo-700">Accepting</span>
+                <span class="min-w-6 rounded-full bg-indigo-100 px-2 py-0.5 text-center text-xs font-black text-black" x-text="machineSummary.accepting || 0"></span>
+            </div>
+            <div class="inline-flex items-center gap-2 rounded-full border border-cyan-100 bg-cyan-50 px-3.5 py-2 shadow-sm">
+                <i class="fa-solid fa-grip text-cyan-600 text-xs"></i>
+                <span class="text-[11px] font-bold uppercase tracking-wide text-cyan-700">Slots</span>
+                <span class="min-w-6 rounded-full bg-cyan-100 px-2 py-0.5 text-center text-xs font-black text-black" x-text="machineSummary.available_slots || 0"></span>
+            </div>
+            <div class="inline-flex items-center gap-2 rounded-full border border-amber-100 bg-amber-50 px-3.5 py-2 shadow-sm">
+                <i class="fa-solid fa-rocket text-amber-600 text-xs"></i>
+                <span class="text-[11px] font-bold uppercase tracking-wide text-amber-700">Running</span>
+                <span class="min-w-6 rounded-full bg-amber-100 px-2 py-0.5 text-center text-xs font-black text-black" x-text="machineSummary.running_jobs || 0"></span>
+            </div>
+        </div>
+    </section>
+
+    <section class="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <div>
+                <h2 class="text-base font-black text-black">Registered Machines</h2>
+                <p class="text-xs text-slate-700">Offline tự tính nếu quá 60 giây chưa heartbeat. Có thể xóa machine không dùng nữa ngay tại đây.</p>
+            </div>
+            <div class="text-[11px] text-slate-600 font-semibold" x-text="machines.length ? ('Updated: ' + new Date().toLocaleTimeString()) : 'No machine data'"></div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[1220px] text-sm">
+                <thead class="bg-slate-50 text-slate-500 uppercase text-[11px] tracking-widest">
+                    <tr>
+                        <th class="text-left px-5 py-4">Machine</th>
+                        <th class="text-left px-5 py-4">Status</th>
+                        <th class="text-left px-5 py-4">Public URL</th>
+                        <th class="text-left px-5 py-4">Version</th>
+                        <th class="text-right px-5 py-4">Token</th>
+                        <th class="text-right px-5 py-4">Slots</th>
+                        <th class="text-right px-5 py-4">Jobs</th>
+                        <th class="text-left px-5 py-4">FRP</th>
+                        <th class="text-left px-5 py-4">Heartbeat</th>
+                        <th class="text-right px-5 py-4">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <template x-if="!machines.length">
+                        <tr><td colspan="10" class="px-5 py-10 text-center text-slate-400 font-semibold">Chưa có machine nào. Gọi API register để hiển thị tại đây.</td></tr>
+                    </template>
+                    <template x-for="m in machines" :key="m.machine_id">
+                        <tr class="hover:bg-slate-50/80 transition">
+                            <td class="px-5 py-4">
+                                <div class="font-black text-slate-900" x-text="m.machine_id"></div>
+                                <div class="text-xs text-slate-400" x-text="m.accepting_jobs ? 'Accepting jobs' : 'Not accepting'"></div>
+                            </td>
+                            <td class="px-5 py-4">
+                                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black" :class="m.is_online ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+                                    <span class="w-2 h-2 rounded-full" :class="m.is_online ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'"></span>
+                                    <span x-text="m.computed_status"></span>
+                                </span>
+                            </td>
+                            <td class="px-5 py-4"><a :href="m.public_url" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-semibold break-all" x-text="m.public_url || '—'"></a></td>
+                            <td class="px-5 py-4 font-mono text-slate-600" x-text="m.version || '—'"></td>
+                            <td class="px-5 py-4 text-right font-black" x-text="m.token_count || 0"></td>
+                            <td class="px-5 py-4 text-right font-black" x-text="m.available_slots || 0"></td>
+                            <td class="px-5 py-4 text-right font-black" x-text="m.running_jobs || 0"></td>
+                            <td class="px-5 py-4"><span class="px-2.5 py-1 rounded-lg bg-slate-100 font-bold text-slate-600" x-text="m.frp_status || 'unknown'"></span></td>
+                            <td class="px-5 py-4 text-slate-500" x-text="formatMachineHeartbeat(m)"></td>
+                            <td class="px-5 py-4">
+                                <div class="flex justify-end gap-2">
+                                    <button @click="checkMachine(m.machine_id)" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 font-black hover:bg-indigo-100 transition text-xs">
+                                        <i class="fa-solid fa-circle-check"></i> Check
+                                    </button>
+                                    <button @click="deleteMachine(m.machine_id)" :disabled="deletingMachineId === m.machine_id" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 text-rose-700 font-black hover:bg-rose-100 transition disabled:opacity-60 text-xs">
+                                        <i class="fa-solid" :class="deletingMachineId === m.machine_id ? 'fa-spinner fa-spin' : 'fa-trash'"></i> Xóa
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

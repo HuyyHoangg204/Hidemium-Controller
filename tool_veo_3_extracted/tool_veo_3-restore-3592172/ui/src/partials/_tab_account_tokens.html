@@ -1,0 +1,19 @@
+<section x-show="activeMenu === 'account_tokens'" x-cloak class="pt-5">
+    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-end gap-2 bg-white">
+            <button id="reset-account-token-status" @click="resetAccountTokens()" :disabled="resettingAccountTokens"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-black border border-slate-300 text-sm font-black hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-sm">
+                <i class="fa-solid fa-rotate-left" :class="resettingAccountTokens ? 'fa-spin' : ''"></i>
+                <span x-text="resettingAccountTokens ? 'Đang reset...' : 'Gỡ trạng thái token'"></span>
+            </button>
+            <button id="refresh-account-token-monitor" @click="loadAccountTokenMonitor()"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-black border border-slate-300 text-sm font-black hover:bg-slate-50 transition-colors shadow-sm">
+                <i class="fa-solid fa-rotate" :class="loadingAccountTokenMonitor ? 'fa-spin' : ''"></i>
+                Refresh
+            </button>
+        </div>
+        <div class="overflow-x-auto account-token-grid">
+            <div id="account-token-grid" class="min-w-[1180px]"></div>
+        </div>
+    </div>
+</section>

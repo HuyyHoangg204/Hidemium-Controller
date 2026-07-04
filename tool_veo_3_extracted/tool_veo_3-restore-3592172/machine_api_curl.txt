@@ -1,0 +1,206 @@
+REGISTER MACHINE
+
+curl.exe -X POST "https://nathamedia.net/api/machines/register" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"machine_id\":\"banana-1b70b5f32555\",\"machine_secret\":\"test-secret\",\"public_url\":\"https://banana-1b70b5f32555.nathabanana.xyz\",\"version\":\"0.1.8\"}"
+
+RESPONSE
+
+{
+  "success": true,
+  "data": {
+    "machine": {
+      "machine_id": "banana-1b70b5f32555",
+      "public_url": "https://banana-1b70b5f32555.nathabanana.xyz",
+      "version": "0.1.8",
+      "status": "registered",
+      "token_count": 0,
+      "available_slots": 0,
+      "running_jobs": 0,
+      "accepting_jobs": false,
+      "frp_status": "unknown",
+      "registered_at": 1710000000,
+      "updated_at": 1710000000,
+      "last_heartbeat_at": null,
+      "computed_status": "offline",
+      "is_online": false,
+      "heartbeat_age_seconds": null
+    }
+  }
+}
+
+CHECK MACHINE REGISTERED (GET BY ID)
+
+curl.exe -X GET "https://nathamedia.net/api/machines/banana-1b70b5f32555"
+
+RESPONSE WHEN REGISTERED
+
+{
+  "success": true,
+  "data": {
+    "machine_id": "banana-1b70b5f32555",
+    "registered": true,
+    "machine": {
+      "machine_id": "banana-1b70b5f32555",
+      "public_url": "https://banana-1b70b5f32555.nathabanana.xyz",
+      "version": "0.1.8",
+      "status": "registered",
+      "computed_status": "offline",
+      "is_online": false,
+      "heartbeat_age_seconds": null
+    }
+  }
+}
+
+RESPONSE WHEN NOT REGISTERED
+
+{
+  "success": true,
+  "data": {
+    "machine_id": "banana-1b70b5f32555",
+    "registered": false,
+    "machine": null
+  }
+}
+
+CHECK MACHINE REGISTERED (QUERY)
+
+curl.exe -X GET "https://nathamedia.net/api/machines/check?machine_id=banana-1b70b5f32555"
+
+CHECK MACHINE REGISTERED (POST BODY)
+
+curl.exe -X POST "https://nathamedia.net/api/machines/check" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"machine_id\":\"banana-1b70b5f32555\"}"
+
+HEARTBEAT MACHINE
+
+curl.exe -X POST "https://nathamedia.net/api/machines/heartbeat" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"machine_id\":\"banana-1b70b5f32555\",\"public_url\":\"https://banana-1b70b5f32555.nathabanana.xyz\",\"status\":\"online\",\"token_count\":830,\"available_slots\":1,\"running_jobs\":0,\"accepting_jobs\":true,\"frp_status\":\"running\"}"
+
+RESPONSE
+
+{
+  "success": true,
+  "data": {
+    "machine": {
+      "machine_id": "banana-1b70b5f32555",
+      "public_url": "https://banana-1b70b5f32555.nathabanana.xyz",
+      "version": "0.1.8",
+      "status": "online",
+      "token_count": 830,
+      "available_slots": 1,
+      "running_jobs": 0,
+      "accepting_jobs": true,
+      "frp_status": "running",
+      "registered_at": 1710000000,
+      "updated_at": 1710000060,
+      "last_heartbeat_at": 1710000060,
+      "computed_status": "online",
+      "is_online": true,
+      "heartbeat_age_seconds": 0
+    }
+  }
+}
+
+DELETE MACHINE
+
+curl.exe -X DELETE "https://nathamedia.net/api/machines/banana-1b70b5f32555"
+
+RESPONSE
+
+{
+  "success": true,
+  "data": {
+    "deleted": true,
+    "machine_id": "banana-1b70b5f32555",
+    "machine": {
+      "machine_id": "banana-1b70b5f32555",
+      "public_url": "https://banana-1b70b5f32555.nathabanana.xyz",
+      "computed_status": "offline",
+      "is_online": false
+    }
+  }
+}
+
+LOCAL SERVER ALTERNATIVE DELETE (server.py only)
+
+curl.exe -X POST "http://127.0.0.1:7860/api/machines/delete" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"machine_id\":\"banana-1b70b5f32555\"}"
+
+CLAIM JOBS (WORKER PULL)
+
+curl.exe -X POST "https://nathamedia.net/api/machines/jobs/claim" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"machine_id\":\"banana-1b70b5f32555\",\"machine_secret\":\"test-secret\",\"available_slots\":10,\"running_jobs\":0,\"supported_modes\":[\"image\",\"video\"]}"
+
+RESPONSE WHEN JOBS AVAILABLE
+
+{
+  "success": true,
+  "data": {
+    "jobs": [
+      {
+        "job_id": "job-abc-123",
+        "action_type": "TEXT_TO_VIDEO",
+        "prompts": ["cinematic cat walking in rain, 4k"],
+        "model": "FAST",
+        "screen_ratio": "16:9",
+        "upsample_resolution": null,
+        "image_paths": [],
+        "attempts": 1
+      }
+    ]
+  }
+}
+
+RESPONSE WHEN NO JOB
+
+{
+  "success": true,
+  "data": {
+    "jobs": []
+  }
+}
+
+REPORT JOB COMPLETED
+
+curl.exe -X POST "https://nathamedia.net/api/machines/jobs/job-abc-123/result" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"machine_id\":\"banana-1b70b5f32555\",\"machine_secret\":\"test-secret\",\"status\":\"completed\",\"download_url\":\"https://flow-content.google/video.mp4\",\"duration_seconds\":12.5,\"attempts\":1,\"error\":null}"
+
+REPORT JOB FAILED
+
+curl.exe -X POST "https://nathamedia.net/api/machines/jobs/job-abc-123/result" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"machine_id\":\"banana-1b70b5f32555\",\"machine_secret\":\"test-secret\",\"status\":\"failed\",\"download_url\":null,\"duration_seconds\":45.2,\"attempts\":3,\"error\":\"Polling timeout: media generation did not finish in time\"}"
+
+PUBLIC API ORCHESTRATION REGISTER
+
+curl.exe -X POST "https://nathamedia.net/api/machines/register" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"machine_id\":\"banana-1b70b5f32555\",\"machine_secret\":\"test-secret\",\"public_url\":\"https://banana-1b70b5f32555.nathabanana.xyz\",\"version\":\"0.1.8\",\"api_key_hash\":\"sha256-api-key\",\"supported_modes\":[\"image\",\"video\"],\"public_api_auth_mode\":\"machine_secret\",\"max_concurrent_jobs\":25}"
+
+PUBLIC API ORCHESTRATION HEARTBEAT
+
+curl.exe -X POST "https://nathamedia.net/api/machines/heartbeat" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"machine_id\":\"banana-1b70b5f32555\",\"public_url\":\"https://banana-1b70b5f32555.nathabanana.xyz\",\"status\":\"online\",\"frp_status\":\"running\",\"supported_modes\":[\"image\",\"video\"],\"token_count\":5,\"max_concurrent_jobs\":25,\"running_jobs\":0,\"available_slots\":25,\"accepting_jobs\":true,\"api_key_hash\":\"sha256-api-key\"}"
+
+RUN PUBLIC DISPATCH ONCE
+
+curl.exe -X POST "https://nathamedia.net/api/machines/dispatch/run-once" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"limit\":25}"
+
+POLL PUBLIC DISPATCH ONCE
+
+curl.exe -X POST "https://nathamedia.net/api/machines/dispatch/poll-once" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"limit\":100}"
+
+PUBLIC DISPATCH STATUS
+
+curl.exe -X GET "https://nathamedia.net/api/machines/dispatch/status"

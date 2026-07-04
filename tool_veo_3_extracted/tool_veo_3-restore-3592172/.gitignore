@@ -1,0 +1,217 @@
+# ============================================================
+# ENVIRONMENTS & SECRETS
+# ============================================================
+.env
+.env.*
+!.env.example
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ============================================================
+# PYTHON
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# ============================================================
+# PYINSTALLER / BUILD
+# ============================================================
+build/
+_build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+*.spec
+
+# ============================================================
+# NODE / FRONTEND
+# ============================================================
+node_modules/
+ui/dist/
+ui/node_modules/
+captcha-solver-main/dist/
+captcha-solver-main/node_modules/
+
+# ============================================================
+# IDE / OS
+# ============================================================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ============================================================
+# LOGS & TEMP
+# ============================================================
+logs/
+temp/
+tmp/
+*.log
+
+# ============================================================
+# MEDIA & OUTPUT FILES
+# ============================================================
+*.exe
+*.msi
+*.dll
+*.pyd
+*.so
+*.dylib
+*.mp4
+*.m4v
+*.mkv
+*.avi
+*.mov
+*.webm
+*.gif
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.bmp
+*.tif
+*.tiff
+*.ico
+*.svg
+*.har
+*.pm4
+
+
+output/
+outputs/
+web/outputs/
+
+# Runtime/output mới của API wrapper
+api/__pycache__/
+outputs/
+
+# Reference implementation: chỉ push source, bỏ runtime/build/config cá nhân
+reference-implementation/.runtime/
+reference-implementation/.token_test_profiles/
+reference-implementation/__pycache__/
+reference-implementation/build/
+reference-implementation/dist/
+reference-implementation/outputs/
+reference-implementation/gui_settings.json
+reference-implementation/token_test_results.json
+reference-implementation/tokens_test.txt
+reference-implementation/*.spec
+
+# ============================================================
+# SENSITIVE / RUNTIME DATA (không push lên git)
+# ============================================================
+# Cookies chứa session thật
+cookies.json
+
+# Chrome profiles (chứa dữ liệu trình duyệt)
+chrome_profiles/
+core/banana_runtime/.runtime/
+
+# ============================================================
+# CHROME PROFILE DATA (Selenium / Playwright runtime)
+# ============================================================
+# Toàn bộ thư mục chrome_profile trong bất kỳ subfolder nào
+**/chrome_profile/
+**/chrome_profile_*/
+
+# Các file Chrome sinh ra trong thư mục chrome_profile
+**/chrome_profile/**
+tool_grok/chrome_profile/
+tool_grok/chrome_profile_*/
+
+# Chrome internal data files (phổ biến trong Selenium profiles)
+BrowserMetrics*.pma
+BrowserMetrics-spare.pma
+CrashpadMetrics*.pma
+CrashpadMetrics-active.pma
+first_party_sets.db
+first_party_sets.db-journal
+*.db-journal
+Last Browser
+Last Version
+Local State
+Variations
+Account Web Data
+Account Web Data-journal
+Cookies
+Cookies-journal
+History
+History-journal
+Favicons
+Favicons-journal
+Login Data
+Login Data-journal
+Network Action Predictor
+Network Action Predictor-journal
+Preferences
+Secure Preferences
+Web Data
+Web Data-journal
+Extension Cookies
+Extension Cookies-journal
+Extension State
+TransportSecurity
+Trust Tokens
+Trust Tokens-journal
+DIPS
+DIPS-journal
+Reporting and NEL
+heavy_ad_intervention_opt_out.db
+heavy_ad_intervention_opt_out.db-journal
+metadata.json
+metadata
+
+# Chrome cache & session
+Cache/
+Code Cache/
+GPUCache/
+ShaderCache/
+DawnCache/
+blob_storage/
+Session Storage/
+Local Storage/
+IndexedDB/
+Service Worker/
+File System/
+databases/
+Extensions/
+Crash Reports/
+
+# Config chứa thông tin máy / cài đặt cá nhân
+settings.json
+browser_config.json
+
+# Runtime task state
+task.json
+
+# ============================================================
+# SCRATCH / NOTES (file tạm, không cần thiết)
+# ============================================================
+lines.txt
+logic_check_cookie.txt
+logic_tao_anh_tool.txt
+prompt_co_che_key.txt
+result_i2v_se.txt
+build_result.txt
+version_info.txt
+
+# ============================================================
+# CÁC FILE CẦN GIỮ LẠI (whitelist để chắc chắn)
+# ============================================================
+# Không dùng *.json hay *.txt chung chung
+# Các file này cần được commit:
+# package.json, package-lock.json, tsconfig.json,
+# requirements.txt, README.md, version.json, .env.example
+
+solve-captcha/
+token-captcha-worker/
+
+# Claude Code harness state (local)
+.claude/

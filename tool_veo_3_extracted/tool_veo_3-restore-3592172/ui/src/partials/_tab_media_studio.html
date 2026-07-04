@@ -1,0 +1,409 @@
+<div x-cloak x-show="mediaPages.includes(activeMenu)" class="media-bootstrap">
+    <div class="container-fluid px-0">
+        <div class="p-4 p-lg-5 mb-4 rounded-4 text-white shadow-lg media-hero">
+            <div class="d-flex flex-column flex-xl-row align-items-xl-end justify-content-between gap-4">
+                <div>
+                    <span class="badge rounded-pill text-bg-light text-indigo mb-3"><i class="fa-solid fa-sparkles me-2"></i>Bootstrap API Workspace</span>
+                    <h1 class="display-6 fw-black mb-2" x-text="currentConfig.title"></h1>
+                    <p class="mb-0 text-white-50">Mỗi API một màn riêng, xử lý qua reference-implementation, hỗ trợ JSON / Multipart / Base64 tuỳ endpoint.</p>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <span class="badge rounded-pill bg-white bg-opacity-10 border border-white border-opacity-25 px-3 py-2" x-text="currentConfig.method"></span>
+                    <span class="badge rounded-pill bg-white bg-opacity-10 border border-white border-opacity-25 px-3 py-2 font-monospace" x-text="currentConfig.endpoint"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div :class="currentConfig.listOnly ? 'col-12' : 'col-12 col-xl-8'">
+                <template x-if="!currentConfig.listOnly">
+                    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                    <div class="card-header bg-white border-0 p-4">
+                        <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+                            <div>
+                                <h2 class="h4 fw-bold mb-1" x-text="currentConfig.title"></h2>
+                                <div class="text-muted small font-monospace" x-text="currentConfig.endpoint"></div>
+                            </div>
+                            <span class="badge rounded-pill" :class="currentConfig.imageCount ? 'text-bg-warning' : 'text-bg-info'" x-text="currentConfig.imageCount ? 'Multipart / JSON' : 'JSON'"></span>
+                        </div>
+                    </div>
+                    <div class="card-body p-4 pt-0">
+                        <form @submit.prevent="submitMediaApi()" class="needs-validation">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Project</label>
+                                    <select class="form-select form-select-lg rounded-3" x-model="mediaForm.project_id">
+                                        <option value="NEW">+ Tạo project mới</option>
+                                        <template x-for="p in projects" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
+                                    </select>
+                                </div>
+                                <div class="col-md-6" x-show="mediaForm.project_id === 'NEW'">
+                                    <label class="form-label fw-bold">Tên project mới</label>
+                                    <input class="form-control form-control-lg rounded-3" x-model="mediaForm.new_project_name" placeholder="VD: Campaign ảnh/video hôm nay">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Prompt hàng loạt</label>
+                                <textarea class="form-control form-control-lg rounded-3" rows="6" x-model="mediaForm.prompt" required placeholder="Mỗi dòng = 1 task&#10;Prompt 1&#10;Prompt 2&#10;Prompt 3"></textarea>
+                                <div class="form-text">Mỗi dòng sẽ tạo task riêng trong cùng project.</div>
+                            </div>
+                            <template x-if="currentConfig.imageCount && isVideoMediaConfig()">
+                                <div class="card border-0 shadow-sm rounded-4 mb-3 overflow-hidden">
+                                    <div class="card-header bg-white border-0 py-3 d-flex align-items-center justify-content-between gap-3 flex-wrap">
+                                        <div>
+                                            <div class="fw-bold"><i class="fa-solid fa-table-list text-primary me-2"></i>Mapping prompt ↔ ảnh tham chiếu</div>
+                                            <div class="small text-muted">Điền để dễ kiểm soát prompt nào đi với ảnh nào.</div>
+                                        </div>
+                                        <span class="badge rounded-pill text-bg-primary px-3 py-2"><span x-text="mediaPromptLines().length"></span> prompt</span>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width: 56px;">#</th>
+                                                    <th style="min-width: 220px;">Prompt</th>
+                                                    <th style="min-width: 260px;">Ảnh đầu / reference</th>
+                                                    <th style="min-width: 220px;" x-show="activeMenu === 'media_video_start_end'">Ảnh cuối</th>
+                                                    <th style="min-width: 180px;">Ghi chú</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template x-for="(prompt, index) in mediaPromptLines()" :key="index + '-' + prompt">
+                                                    <tr>
+                                                        <td><span class="badge rounded-pill text-bg-dark" x-text="index + 1"></span></td>
+                                                        <td><div class="small fw-semibold text-break" x-text="prompt"></div></td>
+                                                        <td>
+                                                            <div class="input-group input-group-sm">
+                                                                <input class="form-control rounded-start-3 font-monospace" :class="mediaMappingMissing(index, 'start') ? 'is-invalid' : ''" type="text" placeholder="Upload ảnh hoặc nhập path server" :value="getMediaPromptMap(index, 'start')" @input="setMediaPromptMap(index, 'start', $event.target.value)">
+                                                                <label class="btn btn-outline-primary rounded-end-3" :class="isMediaMappingUploading(index, 'start') ? 'disabled' : ''">
+                                                                    <i class="fa-solid fa-cloud-arrow-up me-1"></i><span x-text="isMediaMappingUploading(index, 'start') ? 'Đang upload...' : 'Chọn ảnh'"></span>
+                                                                    <input type="file" class="d-none" accept="image/*" :disabled="isMediaMappingUploading(index, 'start')" @change="uploadMediaMappingFile(index, 'start', $event.target.files[0]); $event.target.value = ''">
+                                                                </label>
+                                                            </div>
+                                                            <div class="invalid-feedback" x-show="mediaMappingMissing(index, 'start')">Thiếu ảnh đầu / reference cho prompt này</div>
+                                                        </td>
+                                                        <td x-show="activeMenu === 'media_video_start_end'">
+                                                            <div class="input-group input-group-sm">
+                                                                <input class="form-control rounded-start-3 font-monospace" :class="mediaMappingMissing(index, 'end') ? 'is-invalid' : ''" type="text" placeholder="Upload ảnh cuối hoặc nhập path server" :value="getMediaPromptMap(index, 'end')" @input="setMediaPromptMap(index, 'end', $event.target.value)">
+                                                                <label class="btn btn-outline-primary rounded-end-3" :class="isMediaMappingUploading(index, 'end') ? 'disabled' : ''">
+                                                                    <i class="fa-solid fa-cloud-arrow-up me-1"></i><span x-text="isMediaMappingUploading(index, 'end') ? 'Đang upload...' : 'Chọn ảnh'"></span>
+                                                                    <input type="file" class="d-none" accept="image/*" :disabled="isMediaMappingUploading(index, 'end')" @change="uploadMediaMappingFile(index, 'end', $event.target.files[0]); $event.target.value = ''">
+                                                                </label>
+                                                            </div>
+                                                            <div class="invalid-feedback" x-show="mediaMappingMissing(index, 'end')">Thiếu ảnh cuối cho prompt này</div>
+                                                        </td>
+                                                        <td>
+                                                            <input class="form-control form-control-sm rounded-3" type="text" placeholder="Ghi chú" :value="getMediaPromptMap(index, 'note')" @input="setMediaPromptMap(index, 'note', $event.target.value)">
+                                                        </td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="card-footer bg-info-subtle border-0 small text-info-emphasis">
+                                        <i class="fa-solid fa-circle-info me-2"></i>Bấm <b>Chọn ảnh</b> để upload ảnh từ máy đang mở web lên server; table sẽ tự điền path hợp lệ để tạo video.
+                                    </div>
+                                </div>
+                            </template>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Model</label>
+                                    <select class="form-select form-select-lg rounded-3" x-model="mediaForm.model">
+                                        <template x-for="m in currentConfig.models" :key="m"><option :value="m" x-text="m"></option></template>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Screen ratio</label>
+                                    <select class="form-select form-select-lg rounded-3" x-model="mediaForm.screen_ratio">
+                                        <option value="16:9">16:9</option><option value="9:16">9:16</option><option value="1:1">1:1</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Số ảnh/video mỗi prompt</label>
+                                    <input class="form-control form-control-lg rounded-3" type="number" min="1" max="100" x-model.number="mediaForm.count">
+                                </div>
+                            </div>
+                            <div class="border rounded-4 p-3 p-lg-4 bg-light-subtle mb-3">
+                                <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
+                                    <div>
+                                        <label class="form-label fw-bold mb-1">Runtime token/proxy</label>
+                                        <div class="form-text mt-0">Tự nạp từ API danh sách token/account. Textarea chỉ để xem hoặc override khi cần.</div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" @click="loadMediaRuntimeTokens(true)" :disabled="mediaRuntimeLoading">
+                                            <span x-show="mediaRuntimeLoading" class="spinner-border spinner-border-sm me-1"></span>
+                                            <i x-show="!mediaRuntimeLoading" class="fa-solid fa-rotate me-1"></i>Nạp token
+                                        </button>
+                                        <span class="badge rounded-pill text-bg-dark px-3 py-2"><span x-text="mediaTokenLines().length"></span> token · <span x-text="mediaTokenLines().length * 10"></span> lane</span>
+                                    </div>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Tokens từ API</label>
+                                        <textarea class="form-control rounded-3 font-monospace" rows="4" x-model="mediaForm.tokensText" placeholder="Tự nạp từ /api/admin/veo/account-sessions"></textarea>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small fw-bold">Proxies theo account</label>
+                                        <textarea class="form-control rounded-3 font-monospace" rows="4" x-model="mediaForm.proxiesText" placeholder="Tự nạp proxy theo từng account"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="alert alert-primary rounded-4 d-flex align-items-center justify-content-between gap-3 mb-3">
+                                <div>
+                                    <div class="fw-bold"><i class="fa-solid fa-layer-group me-2"></i>Preview batch</div>
+                                    <div class="small">Prompt: <b x-text="mediaPromptLines().length"></b> · Mỗi prompt: <b x-text="Math.max(1, Number(mediaForm.count || 1))"></b></div>
+                                </div>
+                                <span class="badge rounded-pill text-bg-primary fs-6 px-3 py-2" x-text="mediaTotalTasks() + ' task'"></span>
+                            </div>
+
+                            <template x-if="currentConfig.imageCount">
+                                <div class="border rounded-4 p-3 p-lg-4 bg-light-subtle mb-3">
+                                    <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
+                                        <div>
+                                            <label class="form-label fw-bold mb-1">Ảnh tham chiếu theo prompt</label>
+                                            <div class="form-text mt-0">UI nhập ảnh cho từng prompt. Một prompt có thể có nhiều ảnh tham chiếu.</div>
+                                        </div>
+                                        <div class="btn-group" role="group">
+                                            <input type="radio" class="btn-check" id="media-mode-upload" value="upload" x-model="mediaInputMode"><label class="btn btn-outline-primary" for="media-mode-upload">Upload</label>
+                                            <input type="radio" class="btn-check" id="media-mode-path" value="path" x-model="mediaInputMode"><label class="btn btn-outline-primary" for="media-mode-path">Local path</label>
+                                            <input type="radio" class="btn-check" id="media-mode-base64" value="base64" x-model="mediaInputMode"><label class="btn btn-outline-primary" for="media-mode-base64">Base64</label>
+                                        </div>
+                                    </div>
+                                    <div x-show="mediaInputMode === 'upload'">
+                                        <input class="form-control form-control-lg rounded-3" type="file" accept="image/*" multiple @change="setMediaFiles($event.target.files); $event.target.value=''">
+                                        <div class="alert alert-warning rounded-4 py-2 px-3 mt-3 mb-0 small">
+                                            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                                            Upload hiện tại là nhóm ảnh chung theo endpoint. Nếu muốn chia ảnh riêng cho từng prompt, nên dùng <b>Local path</b> hoặc <b>Base64</b> theo nhóm.
+                                        </div>
+                                        <div class="form-text mt-2" x-text="imageHint"></div>
+                                        <div class="d-flex gap-2 flex-wrap mt-3" x-show="mediaFiles.length">
+                                            <template x-for="f in mediaFiles" :key="f.name + f.size"><span class="badge text-bg-light border px-3 py-2"><i class="fa-regular fa-image me-1"></i><span x-text="f.name"></span></span></template>
+                                        </div>
+                                    </div>
+                                    <div x-show="mediaInputMode === 'path'">
+                                        <textarea class="form-control rounded-3 font-monospace" rows="7" x-model="mediaForm.pathsText" placeholder="Prompt 1:\nD:/images/p1_ref1.jpg\nD:/images/p1_ref2.jpg\n\nPrompt 2:\nD:/images/p2_ref1.jpg\nD:/images/p2_ref2.jpg"></textarea>
+                                        <div class="form-text">Gợi ý UI: gom path theo từng prompt để dễ kiểm soát ảnh tham chiếu. Không đổi logic gửi hiện tại.</div>
+                                    </div>
+                                    <div x-show="mediaInputMode === 'base64'">
+                                        <textarea class="form-control rounded-3 font-monospace" rows="7" x-model="mediaForm.base64Text" placeholder='[{"prompt":"Prompt 1","images":[{"b64":"BASE64_IMAGE_1","name":"p1_ref1.jpg","mime":"image/jpeg"},{"b64":"BASE64_IMAGE_2","name":"p1_ref2.jpg","mime":"image/jpeg"}]}]'></textarea>
+                                        <div class="form-text">Gợi ý UI: mỗi object là một prompt, trong đó <code>images</code> có thể chứa nhiều ảnh tham chiếu.</div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap border-top pt-4">
+                                <div class="small text-muted">Endpoint: <code x-text="currentConfig.endpoint"></code></div>
+                                <button class="btn btn-primary btn-lg rounded-3 px-4 fw-bold" type="submit" :disabled="mediaSubmitting">
+                                    <span x-show="mediaSubmitting" class="spinner-border spinner-border-sm me-2"></span>
+                                    <i x-show="!mediaSubmitting" class="fa-solid fa-paper-plane me-2"></i><span x-text="mediaTotalTasks() > 1 ? ('Tạo ' + mediaTotalTasks() + ' task') : 'Tạo task'"></span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    </div>
+                </template>
+
+                <template x-if="currentConfig.listOnly">
+                    <section class="media-task-shell bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                        <div class="px-4 px-lg-5 py-4 border-bottom bg-white">
+                            <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+                                <div>
+                                    <div class="text-uppercase text-primary fw-black small mb-1" style="letter-spacing:.12em;">Project dashboard</div>
+                                    <h2 class="h4 fw-black mb-1 text-slate-900"><i class="fa-solid fa-list-check text-primary me-2"></i>Task đã làm</h2>
+                                    <div class="text-muted small">Gom theo project, bấm project để xem task chi tiết. Layout gọn cho batch 100-200 task.</div>
+                                </div>
+                                <button class="btn btn-primary rounded-3 fw-bold px-4" @click="loadMediaTasks()" :disabled="mediaTaskListLoading">
+                                    <span x-show="mediaTaskListLoading" class="spinner-border spinner-border-sm me-2"></span>
+                                    <i x-show="!mediaTaskListLoading" class="fa-solid fa-rotate me-2"></i>Tải lại
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-4 p-lg-5 bg-slate-50">
+                            <template x-if="!mediaTaskProjects.length">
+                                <div class="media-empty-state text-center bg-white border border-dashed border-slate-300 rounded-2xl p-5 text-muted">Chưa có project/task nào hoặc server chưa restart route mới.</div>
+                            </template>
+
+                            <div class="media-task-grid" x-show="mediaTaskProjects.length">
+                                <aside class="media-project-rail">
+                                    <div class="d-flex align-items-center justify-content-between mb-3">
+                                        <div class="fw-black text-slate-900">Projects</div>
+                                        <span class="badge rounded-pill text-bg-light border" x-text="mediaTaskProjects.length + ' project'"></span>
+                                    </div>
+                                    <div class="vstack gap-3 media-project-list">
+                                        <template x-for="project in mediaTaskProjects" :key="project.project_id || project.project_name">
+                                            <button type="button" class="media-project-card text-start"
+                                                :class="selectedMediaTaskProject && selectedMediaTaskProject.project_id === project.project_id ? 'is-active' : ''"
+                                                @click="selectMediaTaskProject(project)">
+                                                <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+                                                    <div class="min-w-0 flex-grow-1">
+                                                        <div class="small fw-black text-primary text-uppercase mb-1" style="letter-spacing:.1em;">Project</div>
+                                                        <div class="fw-black text-slate-900 text-truncate" x-text="project.project_name || 'Không có project'"></div>
+                                                        <div class="small text-muted font-monospace text-truncate" x-text="project.project_id || '—'"></div>
+                                                    </div>
+                                                    <div class="media-task-count"><span x-text="project.total || 0"></span></div>
+                                                </div>
+
+                                                <div class="media-progress mb-3">
+                                                    <div class="media-progress-bar" :style="`width:${project.total ? Math.round(((project.completed || 0) / project.total) * 100) : 0}%`"></div>
+                                                </div>
+
+                                                <div class="media-stat-grid mb-3">
+                                                    <div><b class="text-success" x-text="project.completed || 0"></b><span>Done</span></div>
+                                                    <div><b class="text-danger" x-text="project.failed || 0"></b><span>Fail</span></div>
+                                                    <div><b class="text-warning" x-text="project.processing || 0"></b><span>Run</span></div>
+                                                    <div><b class="text-secondary" x-text="project.pending || 0"></b><span>Wait</span></div>
+                                                </div>
+
+                                                <div class="media-time-list small text-muted">
+                                                    <div><i class="fa-regular fa-clock me-1"></i><span>Bắt đầu</span><b x-text="formatTimestamp(project.started_at)"></b></div>
+                                                    <div><i class="fa-solid fa-flag-checkered me-1"></i><span>Kết thúc</span><b x-text="formatTimestamp(project.finished_at)"></b></div>
+                                                    <div><i class="fa-solid fa-stopwatch me-1"></i><span>Duration</span><b x-text="formatDurationHuman(project.duration_seconds)"></b></div>
+                                                </div>
+                                            </button>
+                                        </template>
+                                    </div>
+                                </aside>
+
+                                <section class="media-task-detail bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                                    <template x-if="!selectedMediaTaskProject">
+                                        <div class="p-5 text-center text-muted">Bấm một project bên trái để xem chi tiết task.</div>
+                                    </template>
+
+                                    <template x-if="selectedMediaTaskProject">
+                                        <div>
+                                            <div class="p-4 p-lg-5 border-bottom bg-white">
+                                                <div class="d-flex align-items-start justify-content-between gap-4 flex-wrap">
+                                                    <div class="min-w-0">
+                                                        <div class="small fw-black text-primary text-uppercase mb-1" style="letter-spacing:.12em;">Chi tiết project</div>
+                                                        <h3 class="h4 fw-black mb-2 text-truncate" x-text="selectedMediaTaskProject.project_name"></h3>
+                                                        <div class="small text-muted">Từ <b x-text="formatTimestamp(selectedMediaTaskProject.started_at)"></b> đến <b x-text="formatTimestamp(selectedMediaTaskProject.finished_at)"></b> · <b x-text="formatDurationHuman(selectedMediaTaskProject.duration_seconds)"></b></div>
+                                                    </div>
+                                                    <div class="media-summary-pills">
+                                                        <span>Tổng <b x-text="selectedMediaTaskProject.total"></b></span>
+                                                        <span class="is-done">Done <b x-text="selectedMediaTaskProject.completed"></b></span>
+                                                        <span class="is-failed">Failed <b x-text="selectedMediaTaskProject.failed"></b></span>
+                                                        <span class="is-running">Running <b x-text="selectedMediaTaskProject.processing"></b></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="media-task-table-wrap">
+                                                <div class="media-task-row media-task-row-head">
+                                                    <div>Status</div>
+                                                    <div>Task</div>
+                                                    <div>Time</div>
+                                                    <div>Action</div>
+                                                </div>
+                                                <template x-for="task in selectedMediaTaskProject.tasks" :key="task.id">
+                                                    <div class="media-task-row media-task-rich-row">
+                                                        <div class="media-status-stack">
+                                                            <span class="badge rounded-pill" :class="mediaStatusClass(task.status)" x-text="task.status || 'UNKNOWN'"></span>
+                                                            <span class="media-kind-pill" x-text="mediaTaskTypeLabel(task)"></span>
+                                                        </div>
+                                                        <div class="min-w-0 media-task-main">
+                                                            <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                                                <span class="media-model-pill" x-text="task.model || 'MODEL'"></span>
+                                                                <span class="media-ratio-pill" x-text="task.screen_ratio || '—'"></span>
+                                                                <span class="small text-muted font-monospace text-truncate" x-text="task.id"></span>
+                                                            </div>
+                                                            <div class="media-prompt-card" :title="mediaTaskTooltip(task)">
+                                                                <div class="fw-black text-slate-900 text-break" x-text="mediaTaskPromptPreview(task)"></div>
+                                                                <div class="media-hover-panel">
+                                                                    <div class="small fw-black text-primary text-uppercase mb-2" style="letter-spacing:.12em;">Prompt đầy đủ</div>
+                                                                    <div class="media-hover-prompt" x-text="mediaTaskPrompt(task)"></div>
+                                                                    <div class="media-hover-meta mt-3">
+                                                                        <span x-text="mediaTaskTypeLabel(task)"></span>
+                                                                        <span x-text="task.model || 'MODEL'"></span>
+                                                                        <span x-text="task.screen_ratio || '—'"></span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="media-ref-strip" x-show="mediaTaskImageRefs(task).length">
+                                                                <template x-for="ref in mediaTaskImageRefs(task)" :key="ref.label + ref.value">
+                                                                    <button type="button" class="media-ref-chip" @click.stop="copyImageToClipboard(ref.value)" :title="'Copy ảnh: ' + ref.value">
+                                                                        <i class="fa-regular fa-image"></i><span x-text="ref.label"></span><b x-text="mediaShortPath(ref.value)"></b>
+                                                                    </button>
+                                                                </template>
+                                                            </div>
+                                                            <div class="small text-danger text-break mt-2" x-show="task.error" x-text="task.error"></div>
+                                                        </div>
+                                                        <div class="small text-muted media-row-time">
+                                                            <div>Tạo: <b x-text="formatTimestamp(task.created_at)"></b></div>
+                                                            <div>Xong: <b x-text="formatTimestamp(task.completed_at || task.updated_at)"></b></div>
+                                                        </div>
+                                                        <div class="media-row-actions">
+                                                            <button class="btn btn-primary btn-sm rounded-3" @click.stop="copyText(mediaTaskPrompt(task), 'Đã copy prompt')"><i class="fa-regular fa-copy me-1"></i>Prompt</button>
+                                                            <button class="btn btn-dark btn-sm rounded-3" @click.stop="pollMediaTask(task)"><i class="fa-solid fa-rotate me-1"></i>Poll</button>
+                                                            <a x-show="task.download_url || task.media_id" :href="task.download_url || `/api/veo/download/${task.id || task.task_id}?token=${localStorage.getItem('vietauto_apikey')}`" target="_blank" class="btn btn-outline-primary btn-sm rounded-3"><i class="fa-solid fa-up-right-from-square me-1"></i>Mở</a>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </section>
+                            </div>
+                        </div>
+                    </section>
+                </template>
+            </div>
+
+            <div class="col-12 col-xl-4" x-show="!currentConfig.listOnly">
+                <div class="card border-0 shadow-sm rounded-4 mb-4">
+                    <div class="card-body p-4">
+                        <h3 class="h5 fw-bold mb-3"><i class="fa-solid fa-list-check text-primary me-2"></i>Kết quả gần nhất</h3>
+                        <template x-if="!lastMediaTask"><div class="alert alert-secondary rounded-3 mb-0">Chưa có task.</div></template>
+                        <template x-if="lastMediaTask">
+                            <div class="vstack gap-2">
+                                <div><span class="text-muted small">Task ID</span><div class="font-monospace fw-bold text-break" x-text="lastMediaTask.id"></div></div>
+                                <div><span class="text-muted small">Status</span><br><span class="badge rounded-pill" :class="mediaStatusClass(lastMediaTask.status)" x-text="lastMediaTask.status"></span></div>
+                                <a x-show="lastMediaTask.download_url || lastMediaTask.media_id" :href="lastMediaTask.download_url || `/api/veo/download/${lastMediaTask.id || lastMediaTask.task_id}?token=${localStorage.getItem('vietauto_apikey')}`" target="_blank" class="btn btn-outline-primary rounded-3"><i class="fa-solid fa-up-right-from-square me-2"></i>Mở media</a>
+                                <button class="btn btn-dark rounded-3" @click="pollMediaTask(lastMediaTask)"><i class="fa-solid fa-rotate me-2"></i>Poll lại</button>
+                                <div class="alert alert-danger rounded-3 mb-0" x-show="lastMediaTask.error" x-text="lastMediaTask.error"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                            <h3 class="h5 fw-bold mb-0">Task đã làm</h3>
+                            <button class="btn btn-outline-primary btn-sm rounded-3" @click="loadMediaTasks()" :disabled="mediaTaskListLoading">
+                                <span x-show="mediaTaskListLoading" class="spinner-border spinner-border-sm me-1"></span>
+                                <i x-show="!mediaTaskListLoading" class="fa-solid fa-rotate me-1"></i>Refresh
+                            </button>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap mb-3 small">
+                            <span class="badge rounded-pill text-bg-dark px-3 py-2">Hiển thị <b x-text="mediaTaskStats().total"></b></span>
+                            <span class="badge rounded-pill text-bg-success px-3 py-2">Done <b x-text="mediaTaskStats().completed"></b></span>
+                            <span class="badge rounded-pill text-bg-warning px-3 py-2">Processing <b x-text="mediaTaskStats().processing"></b></span>
+                            <span class="badge rounded-pill text-bg-secondary px-3 py-2">Pending <b x-text="mediaTaskStats().pending"></b></span>
+                            <span class="badge rounded-pill text-bg-danger px-3 py-2">Failed <b x-text="mediaTaskStats().failed"></b></span>
+                        </div>
+                        <template x-if="!mediaTaskList.length"><div class="alert alert-secondary rounded-3 mb-0">Chưa có task nào.</div></template>
+                        <div class="vstack gap-2" x-show="mediaTaskList.length">
+                            <template x-for="task in mediaTaskList" :key="task.id">
+                                <div class="border rounded-3 p-3 bg-light-subtle">
+                                    <div class="vstack gap-1">
+                                        <div class="min-w-0">
+                                            <div class="fw-bold text-truncate" x-text="task.name || task.action_type || 'Media task'"></div>
+                                            <div class="small text-muted font-monospace text-break" x-text="task.id"></div>
+                                        </div>
+                                        <span class="badge rounded-pill align-self-start" :class="mediaStatusClass(task.status)" x-text="task.status"></span>
+                                    </div>
+                                    <div class="small text-muted mt-2" x-text="(task.action_type || '') + ' · ' + (task.model || '') + ' · ' + (task.screen_ratio || '')"></div>
+                                    <div class="d-flex gap-2 mt-3 flex-wrap">
+                                        <button class="btn btn-dark btn-sm rounded-3" @click="pollMediaTask(task)">Poll</button>
+                                        <a x-show="task.download_url || task.media_id" :href="task.download_url || `/api/veo/download/${task.id || task.task_id}?token=${localStorage.getItem('vietauto_apikey')}`" target="_blank" class="btn btn-outline-primary btn-sm rounded-3">Mở media</a>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

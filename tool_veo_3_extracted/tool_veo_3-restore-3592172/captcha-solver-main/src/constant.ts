@@ -1,0 +1,4 @@
+export enum CaptchaAction {
+  VIDEO_GENERATION = 'VIDEO_GENERATION',
+  IMAGE_GENERATION = 'IMAGE_GENERATION',
+}

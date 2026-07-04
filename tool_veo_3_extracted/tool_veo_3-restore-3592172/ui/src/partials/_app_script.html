@@ -1,0 +1,2644 @@
+    <script>
+        const API_URL = '/api';
+
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('app', () => ({
+                isLoggedIn: false,
+                mobileMenuOpen: false,
+                sidebarCollapsed: false,
+                loginForm: { username: '', password: '' },
+                loading: false,
+                currentUser: null,
+                activeMenu: 'media_image',
+                mediaMenuItems: [
+                    { key: 'media_image', label: 'Tạo ảnh thường', icon: 'fa-image' },
+                    { key: 'media_image_4k', label: 'Tạo ảnh 4K', icon: 'fa-gem' },
+                    { key: 'media_video_start', label: 'Video từ ảnh đầu', icon: 'fa-play' },
+                    { key: 'media_video_start_end', label: 'Video ảnh đầu/cuối', icon: 'fa-film' },
+                    { key: 'media_video_reference', label: 'Video ảnh reference', icon: 'fa-user-astronaut' },
+                    { key: 'media_images_from_images', label: 'Ảnh từ nhiều ảnh', icon: 'fa-layer-group' },
+                    { key: 'media_images_from_images_4k', label: 'Ảnh nhiều ảnh 4K', icon: 'fa-images' },
+                    { key: 'media_task_list', label: 'Task đã làm', icon: 'fa-list-check' },
+                ],
+                mediaPages: ['media_image', 'media_image_4k', 'media_video_start', 'media_video_start_end', 'media_video_reference', 'media_images_from_images', 'media_images_from_images_4k', 'media_task_list'],
+                mediaInputMode: 'upload',
+                mediaSubmitting: false,
+                mediaFiles: [],
+                mediaForm: { prompt: 'A cinematic cat in rain', project_id: 'NEW', new_project_name: '', count: 1, model: 'NARWHAL', screen_ratio: '16:9', pathsText: '', base64Text: '', tokensText: '', proxiesText: '' },
+                mediaPromptImageMap: {},
+                mediaMappingUploading: {},
+                lastMediaTask: null,
+                mediaTaskList: [],
+                mediaTaskProjects: [],
+                selectedMediaTaskProject: null,
+                mediaTaskProjectId: '',
+                mediaTaskListLoading: false,
+                mediaRuntimeLoading: false,
+                mediaRuntimeLoaded: false,
+
+                // Users Data
+                users: [],
+                loadingUsers: false,
+                userVeoAssignModal: { isOpen: false, loading: false, user: null, selectedIds: [] },
+
+                // Veo Accounts Data
+                veoAccounts: [],
+                loadingVeoAccounts: false,
+                cookieHealthMap: {},
+                proxyHealthMap: {},
+                creditsMap: {},          // accountId → credits_data
+                captchaConnected: {},   // accountName → true/false
+                checkingHealth: false,
+                checkingCredits: false,
+
+                // Real-time Account Activity Monitoring
+                accountActivities: [],
+                accountTokenRows: [],
+                accountTokenSearch: '',
+                accountTokenFilter: 'ALL',
+                loadingAccountTokenMonitor: false,
+                resettingAccountTokens: false,
+                accountTokenGrid: null,
+                deletingAccountId: null,
+                togglingAccountId: null,   // Track account đang bị xoá để hiện loading
+
+                // User Job Results
+                jobResults: [],
+                jobResultsTotal: 0,
+                jobResultsSkip: 0,
+                jobResultsLimit: 10,
+                jobResultsSearch: '',
+                jobResultsProject: '',
+                jobResultsStatus: '',
+                loadingJobResults: false,
+                jobResultsGrid: null,
+
+                // Captcha Statistics (Remote / Extension)
+                captchaStats: { per_account: {}, totals: {} },
+
+                // Global Rotating Proxy
+                globalProxy: '',
+                savingGlobalProxy: false,
+
+                // Server Queue Real-time Stats
+                queueStats: { max_concurrent: 0, queue_pending: 0, busy_cookies: [], free_cookies: [], active_workers: 0 },
+                queueSettingsLoading: false,
+
+                // Machine Registry
+                machines: [],
+                machineSummary: { total: 0, online: 0, accepting: 0, available_slots: 0, running_jobs: 0 },
+                loadingMachines: false,
+                checkingMachine: false,
+                deletingMachineId: null,
+                machineCheckId: '',
+                machineCheckResult: null,
+
+                // Projects Data
+                projects: [],
+                selectedProjectId: null,
+
+                // Videos Data
+                videos: [],
+                videoLoading: false,
+                searchQuery: '',
+                filterStatus: 'ALL',
+                filterDate: '',
+                selectedTaskIds: [],
+                batchRetrying: false,
+                pagination: { page: 1, limit: 10, total: 0, hasMore: false },
+
+                // Create Batch Video Form
+                batchForm: {
+                    project_id: 'NEW',
+                    name: '',
+                    promptsText: '',
+                    screen_ratio: '16:9',
+                    model: 'VEO_3.1_FAST',
+                    videosPerPrompt: 1,
+                    maxThreads: 2,
+                    veo_cookie: '',
+                    proxy_url: '',
+                    showAdvanced: false
+                },
+                videoCreating: false,
+                videoStatus: { show: false, logs: [] },
+
+                // Create Image Form
+                imageForm: {
+                    project_id: 'NEW',
+                    new_project_name: '',
+                    access_token: '',
+                    model: 'GEM_PIX_2',
+                    aspect: 'IMAGE_ASPECT_RATIO_PORTRAIT',
+                    count: 1,
+                    upsample_resolution: '',
+                    max_threads: 5,
+                    prompts_raw: '',
+                    image_files: [],  // [{name, preview, b64, mime}]
+                    excelTasks: [],   // [{prompt, image_paths:[]}]
+                    excelImportName: ''
+                },
+                imageCreating: false,
+                imageResults: [],
+
+                // I2V Form
+                i2vForm: {
+                    project_id: 'NEW',
+                    new_project_name: '',
+                    model: 'VEO_3.1_I2V_FAST',
+                    screen_ratio: '16:9',
+                    mode: 'multi',
+                    prompt: '',
+                    image_files: [],
+                    excelTasks: [],
+                    excelImportName: ''
+                },
+                i2vCreating: false,
+
+                toast: { visible: false, message: '', type: 'success', timeout: null },
+
+                modal: { isOpen: false, isEdit: false, loading: false, data: { id: '', username: '', password: '', role: 'DEV', permissions: [], is_active: true } },
+                cookieModal: { isOpen: false, loading: false, data: '' },
+                veoAccountModal: { isOpen: false, isEdit: false, loading: false, data: { id: '', name: '', cookie: '', proxy: '', static_proxy: '', is_active: true } },
+                retryModal: { isOpen: false, loading: false, taskId: '', action_type: 'TEXT_TO_VIDEO', form: { prompt: '', model: 'VEO_3.1_FAST', screen_ratio: '16:9' } },
+                retryingProject: false,
+                retryingProjectToday: false,
+                retryingProjectAll: false,
+                resumingPaused: false,
+
+                // Fullscreen loading overlay
+                creationLoading: { show: false, title: '', subtitle: '' },
+
+                // Project completion notification tracking
+                _notifiedProjects: new Set(),
+                _prevProjectStates: {},
+
+                get isAdmin() {
+                    const role = String(this.currentUser?.role || '').toUpperCase();
+                    return role === 'ADMIN' || role.endsWith('.ADMIN');
+                },
+
+                hasPermission(perm) {
+                    if (this.isAdmin) return true;
+                    const permissions = Array.isArray(this.currentUser?.permissions) ? this.currentUser.permissions : [];
+                    return permissions.map(p => String(p).toUpperCase()).includes(String(perm).toUpperCase());
+                },
+
+                showToast(msg, type = 'success') {
+                    this.toast.message = msg; this.toast.type = type; this.toast.visible = true;
+                    if (this.toast.timeout) clearTimeout(this.toast.timeout);
+                    this.toast.timeout = setTimeout(() => { this.toast.visible = false; }, 3000);
+                },
+
+                _requestNotificationPermission() {
+                    if ('Notification' in window && Notification.permission === 'default') {
+                        Notification.requestPermission();
+                    }
+                },
+
+                _sendProjectNotification(projectName, completed, failed, total, elapsedStr) {
+                    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+                    try {
+                        const n = new Notification('🎬 Dự án hoàn thành!', {
+                            body: `"${projectName}" đã xong!\n✅ ${completed} thành công | ❌ ${failed} thất bại\n⏱ Tổng thời gian: ${elapsedStr}`,
+                            icon: '/favicon.ico',
+                            tag: 'project-done-' + projectName,
+                            requireInteraction: true,
+                        });
+                        n.onclick = () => { window.focus(); n.close(); };
+                        // Auto-close sau 15s
+                        setTimeout(() => n.close(), 15000);
+                    } catch (e) { console.warn('[Notification] Error:', e); }
+                },
+
+                _checkProjectCompletion(updatedProjects) {
+                    for (const proj of updatedProjects) {
+                        const total = proj.total_videos || 0;
+                        if (total === 0) continue;
+                        const completed = proj.completed_images_count !== undefined ? proj.completed_images_count : (proj.completed_count || 0);
+                        const failed = proj.failed_count || 0;
+                        const pending = proj.pending_count || 0;
+                        const isDone = pending === 0 && (completed + failed) >= total;
+                        const wasDone = this._prevProjectStates[proj.id];
+                        if (isDone && !wasDone && !this._notifiedProjects.has(proj.id)) {
+                            // Tính elapsed
+                            const now = Math.floor(Date.now() / 1000);
+                            const started = Math.floor(proj.created_at || now);
+                            const diff = now - started;
+                            const h = Math.floor(diff / 3600);
+                            const m = Math.floor((diff % 3600) / 60);
+                            const s = diff % 60;
+                            let elapsedStr = '';
+                            if (h > 0) elapsedStr = h + 'h ' + String(m).padStart(2,'0') + 'm';
+                            else if (m > 0) elapsedStr = m + 'm ' + String(s).padStart(2,'0') + 's';
+                            else elapsedStr = s + 's';
+
+                            this._notifiedProjects.add(proj.id);
+                            this._sendProjectNotification(proj.name, completed, failed, total, elapsedStr);
+                            this.showToast(`🎉 Dự án "${proj.name}" đã hoàn thành! (${completed}✅ / ${failed}❌)`, 'success');
+                        }
+                        this._prevProjectStates[proj.id] = isDone;
+                    }
+                },
+
+                logTerminal(msg) {
+                    const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+                    this.videoStatus.logs.push({ time, msg });
+                    const term = document.getElementById('terminal-logs');
+                    if (term) setTimeout(() => term.scrollTop = term.scrollHeight, 50);
+                },
+
+                async init() {
+
+                    this.filterMediaType = 'ALL';   // media type filter default
+
+                    this.redirectRemovedRoutes();
+
+                    // Internal tab state only; removed legacy URL routers for create/video/image screens.
+                    this.$watch('isLoggedIn', (val) => {
+                        if (!val) this.syncLoginPath();
+                    });
+
+                    const savedToken = this.getApiToken();
+                    if (savedToken) {
+                        await this.verifyToken(savedToken);
+                    } else {
+                        document.documentElement.classList.remove('logged-in', 'not-logged-in');
+                        if (window.location.pathname !== '/login') {
+                            window.history.replaceState(null, null, '/login');
+                        }
+                    }
+
+                    // Request notification permission
+                    this._requestNotificationPermission();
+
+                    // Auto-refresh stats (Pass/Fail/Wait) & Videos in background
+                    setInterval(async () => {
+                        // Skip polling khi tab browser đang ẩn (tiết kiệm request)
+                        if (document.hidden || !this.isLoggedIn) return;
+                        if (this.activeMenu !== 'video_gallery') return;
+                        try {
+                            // Background reload projects to update the count badges
+                            const pResp = await this.apiCall('/veo/projects');
+                            this.projects = pResp;
+                            // Check project completion & send notifications
+                            this._checkProjectCompletion(pResp);
+                            // Background reload queue stats
+                            this.loadQueueSettings();
+                            // Background reload videos if user is viewing a project
+                            if (this.selectedProjectId) {
+                                const page = this.pagination.page || 1;
+                                let url = `/veo/videos?page=${page}&limit=${this.pagination.limit}&project_id=${this.selectedProjectId}`;
+                                if (this.searchQuery && this.searchQuery.trim() !== '') {
+                                    url += `&search=${encodeURIComponent(this.searchQuery.trim())}`;
+                                }
+                                if (this.filterStatus && this.filterStatus !== 'ALL') {
+                                    url += `&status=${this.filterStatus}`;
+                                }
+                                if (this.filterMediaType && this.filterMediaType !== 'ALL') {
+                                    url += `&media_type=${this.filterMediaType}`;
+                                }
+                                if (this.filterDate) {
+                                    url += `&date_from=${this.filterDate}`;
+                                }
+                                const vResp = await this.apiCall(url);
+                                this.videos = vResp.items || [];
+                                if (vResp.total !== undefined) {
+                                    this.pagination.total = vResp.total;
+                                    this.pagination.hasMore = vResp.has_more;
+                                }
+                            }
+                        } catch (e) { console.error("Auto refresh error:", e); }
+                    }, 30000);
+
+                    // Auto-refresh Account Activity khi đang xem tab veo_accounts (mỗi 5s)
+                    setInterval(async () => {
+                        if (document.hidden || !this.isLoggedIn) return;
+                        if (this.activeMenu !== 'veo_accounts' || !this.isAdmin) return;
+                        await this.loadAccountActivities();
+                        await this.loadCaptchaStats();
+                    }, 5000);
+                },
+
+                async handleImageFilePick(event) {
+                    const files = Array.from(event.target.files);
+                    for (const file of files) {
+                        if (this.imageForm.image_files.length >= 1) break;
+                        const b64 = await new Promise(resolve => {
+                            const reader = new FileReader();
+                            reader.onload = e => resolve(e.target.result.split(',')[1]);
+                            reader.readAsDataURL(file);
+                        });
+                        this.imageForm.image_files.push({ name: file.name, preview: URL.createObjectURL(file), b64, mime: file.type || 'image/jpeg' });
+                    }
+                    event.target.value = '';
+                },
+
+                async handleExcelImport(event) {
+                    const file = event.target.files[0];
+                    event.target.value = '';
+                    if (!file) return;
+
+                    if (typeof XLSX === 'undefined') {
+                        this.showToast('Thư viện SheetJS chưa tải xong, thử lại sau!', 'error');
+                        return;
+                    }
+
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                        const sheetName = workbook.SheetNames[0];
+                        const sheet = workbook.Sheets[sheetName];
+                        // Chuyển sang JSON (bỏ header row đầu tiên)
+                        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+                        if (!rows || rows.length === 0) {
+                            this.showToast('File Excel không có dữ liệu!', 'error');
+                            return;
+                        }
+
+                        // Tìm key cột prompt và image (case-insensitive)
+                        const firstRow = rows[0];
+                        const keys = Object.keys(firstRow);
+                        const promptKey = keys.find(k => k.toLowerCase() === 'prompt') || keys[1];
+                        const imageKey = keys.find(k => k.toLowerCase() === 'image') || keys[2];
+
+                        const tasks = [];
+                        for (const row of rows) {
+                            const prompt = (row[promptKey] || '').toString().trim();
+                            if (!prompt) continue;
+                            // Cột image: nhiều đường dẫn phân cách bằng dấu ;
+                            const imageRaw = (row[imageKey] || '').toString().trim();
+                            const image_paths = imageRaw
+                                ? imageRaw.split(';').map(p => p.trim()).filter(p => p)
+                                : [];
+                            tasks.push({ prompt, image_paths });
+                        }
+
+                        if (tasks.length === 0) {
+                            this.showToast('Không tìm thấy dòng nào có prompt hợp lệ!', 'error');
+                            return;
+                        }
+
+                        this.imageForm.excelTasks = tasks;
+                        this.imageForm.excelImportName = file.name;
+                        this.showToast(`✅ Đã đọc ${tasks.length} dòng từ "${file.name}"`, 'success');
+                    } catch (err) {
+                        console.error('Excel parse error:', err);
+                        this.showToast('Không đọc được file Excel: ' + err.message, 'error');
+                    }
+                },
+
+                async createImage() {
+                    // ── Nếu có Excel tasks → dùng endpoint import-excel ──
+                    if (this.imageForm.excelTasks.length > 0) {
+                        await this._createImageFromExcel();
+                        return;
+                    }
+
+                    // ── Manual prompts (textarea) ──
+                    const prompts = (this.imageForm.prompts_raw || '').split('\n').map(l => l.trim()).filter(l => l);
+                    if (prompts.length === 0) {
+                        this.showToast('Vui lòng nhập ít nhất 1 prompt hoặc import file Excel', 'error');
+                        return;
+                    }
+
+
+
+                    let project_id = this.imageForm.project_id;
+                    const isNewProject = project_id === 'NEW';
+
+                    const image_refs_b64 = this.imageForm.image_files.map(f => ({ b64: f.b64, mime: f.mime, name: f.name }));
+
+                    this.imageCreating = true;
+                    this.imageResults = [];
+                    // ── Show loading overlay ──
+                    this.creationLoading = {
+                        show: true,
+                        title: `Đang gửi ${prompts.length} tác vụ tạo ảnh...`,
+                        subtitle: 'Hệ thống đang tạo project và đưa prompts vào hàng chờ xử lý'
+                    };
+                    try {
+                        const pname = isNewProject
+                            ? (this.imageForm.new_project_name.trim() || 'Image Project')
+                            : 'Existing Project';
+
+                        const payload = {
+                            name: pname,
+                            prompts,
+                            access_token: this.imageForm.access_token,
+                            model: this.imageForm.model,
+                            screen_ratio: this.imageForm.aspect,
+                            videos_per_prompt: 1,
+                            max_threads: this.imageForm.max_threads || 5,
+                            upsample_resolution: this.imageForm.upsample_resolution || null,
+                        };
+                        if (!isNewProject) payload.project_id = project_id;
+                        if (image_refs_b64.length > 0) payload.image_refs = image_refs_b64;
+
+                        const data = await this.apiCall('/veo/project/batch-create', 'POST', payload);
+                        project_id = data.id;
+
+                        // ── Update loading text ──
+                        this.creationLoading.title = '✅ Đã gửi thành công!';
+                        this.creationLoading.subtitle = `${prompts.length} tác vụ đang được xử lý. Đang chuyển đến dự án...`;
+
+                        // Reset form
+                        this.imageForm.prompts_raw = '';
+                        this.imageForm.image_files = [];
+                        this.imageForm.new_project_name = '';
+                        await this.loadProjects();
+
+                        // Navigate to gallery after short delay
+                        setTimeout(() => {
+                            this.creationLoading.show = false;
+                            this.videos = [];
+                            this.selectedProjectId = project_id;
+                            this.activeMenu = 'video_gallery';
+                            this.loadVideos();
+                            this.showToast(`✅ Đã gửi ${prompts.length} tác vụ tạo ảnh vào hàng chờ!`, 'success');
+                        }, 1200);
+                    } catch (err) {
+                        this.creationLoading.show = false;
+                        console.error('[CreateImage] Error:', err);
+                        const errMsg = err.message || 'Lỗi không xác định';
+                        this.showToast('❌ Lỗi tạo ảnh: ' + errMsg, 'error');
+                    } finally {
+                        this.imageCreating = false;
+                    }
+                },
+
+                async _createImageFromExcel() {
+                    const tasks = this.imageForm.excelTasks;
+
+                    let project_id = this.imageForm.project_id;
+                    const isNewProject = project_id === 'NEW';
+                    const pname = isNewProject
+                        ? (this.imageForm.new_project_name.trim() || 'Image Project (Excel)')
+                        : 'Existing Project';
+
+                    this.imageCreating = true;
+                    this.imageResults = [];
+                    // ── Show loading overlay ──
+                    this.creationLoading = {
+                        show: true,
+                        title: `Đang import ${tasks.length} tác vụ từ Excel...`,
+                        subtitle: 'Hệ thống đang tạo project và đưa tasks vào hàng chờ xử lý'
+                    };
+                    try {
+                        const payload = {
+                            name: pname,
+                            tasks: tasks,   // [{prompt, image_paths:[]}]
+                            access_token: this.imageForm.access_token,
+                            model: this.imageForm.model,
+                            screen_ratio: this.imageForm.aspect,
+                            max_threads: this.imageForm.max_threads || 5,
+                            upsample_resolution: this.imageForm.upsample_resolution || null,
+                        };
+                        if (!isNewProject) payload.project_id = project_id;
+
+                        const data = await this.apiCall('/veo/project/import-excel', 'POST', payload);
+                        project_id = data.id;
+
+                        // ── Update loading text ──
+                        this.creationLoading.title = '✅ Import Excel thành công!';
+                        this.creationLoading.subtitle = `${tasks.length} tác vụ đang được xử lý. Đang chuyển đến dự án...`;
+
+                        // Reset
+                        this.imageForm.excelTasks = [];
+                        this.imageForm.excelImportName = '';
+                        this.imageForm.new_project_name = '';
+                        await this.loadProjects();
+
+                        // Navigate to gallery after short delay
+                        setTimeout(() => {
+                            this.creationLoading.show = false;
+                            this.videos = [];
+                            this.selectedProjectId = project_id;
+                            this.activeMenu = 'video_gallery';
+                            this.loadVideos();
+                            this.showToast(`✅ Đã gửi ${tasks.length} tác vụ từ Excel vào hàng chờ!`, 'success');
+                        }, 1200);
+                    } catch (err) {
+                        this.creationLoading.show = false;
+                        console.error('[ImportExcel] Error:', err);
+                        const errMsg = err.message || 'Lỗi không xác định';
+                        this.showToast('❌ Lỗi import Excel: ' + errMsg, 'error');
+                    } finally {
+                        this.imageCreating = false;
+                    }
+                },
+
+                handleI2VFilePick(evt) {
+                    const maxFiles = this.i2vForm.mode === 'frames' ? 2 : 10;
+                    const files = Array.from(evt.target.files || []);
+                    evt.target.value = '';
+                    const remaining = maxFiles - this.i2vForm.image_files.length;
+                    const toAdd = files.slice(0, remaining);
+                    toAdd.forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = e => {
+                            const dataUrl = e.target.result;
+                            const [header, b64] = dataUrl.split(',');
+                            this.i2vForm.image_files.push({
+                                name: file.name,
+                                preview: dataUrl,
+                                b64: b64,
+                                mime: file.type || 'image/jpeg'
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                    if (files.length > remaining)
+                        this.showToast(`Chi them duoc ${toAdd.length} anh (toi da ${maxFiles})`, 'error');
+                },
+
+                async handleI2VExcelImport(event) {
+                    const file = event.target.files[0];
+                    event.target.value = '';
+                    if (!file) return;
+                    if (typeof XLSX === 'undefined') {
+                        this.showToast('Thu vien SheetJS chua tai xong, thu lai sau!', 'error');
+                        return;
+                    }
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                        const sheetName = workbook.SheetNames[0];
+                        const sheet = workbook.Sheets[sheetName];
+                        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+                        if (!rows || rows.length === 0) {
+                            this.showToast('File Excel khong co du lieu!', 'error');
+                            return;
+                        }
+                        const firstRow = rows[0];
+                        const keys = Object.keys(firstRow);
+                        const promptKey = keys.find(k => k.toLowerCase() === 'prompt') || keys[0];
+                        const imageKey = keys.find(k => k.toLowerCase() === 'image') || keys[1];
+                        const tasks = [];
+                        for (const row of rows) {
+                            const prompt = (row[promptKey] || '').toString().trim();
+                            if (!prompt) continue;
+                            const imageRaw = (row[imageKey] || '').toString().trim();
+                            const image_paths = imageRaw
+                                ? imageRaw.split(';').map(p => p.trim()).filter(p => p)
+                                : [];
+                            tasks.push({ prompt, image_paths });
+                        }
+                        if (tasks.length === 0) {
+                            this.showToast('Khong tim thay dong nao co prompt hop le!', 'error');
+                            return;
+                        }
+                        this.i2vForm.excelTasks = tasks;
+                        this.i2vForm.excelImportName = file.name;
+                        this.showToast(`Da doc ${tasks.length} dong tu "${file.name}"`, 'success');
+                    } catch (err) {
+                        this.showToast('Khong doc duoc file Excel: ' + err.message, 'error');
+                    }
+                },
+
+                async createI2V() {
+                    if (this.i2vForm.excelTasks && this.i2vForm.excelTasks.length > 0) {
+                        await this._createI2VFromExcel();
+                        return;
+                    }
+
+                    if (this.i2vForm.image_files.length === 0) {
+                        this.showToast('Vui long chon it nhat 1 anh', 'error');
+                        return;
+                    }
+
+                    let project_id = this.i2vForm.project_id;
+                    if (project_id === 'NEW') {
+                        const pname = this.i2vForm.new_project_name.trim() || 'I2V Project';
+                        try {
+                            const newProj = await this.apiCall('/veo/project', 'POST', { name: pname });
+                            project_id = newProj.id;
+                            await this.loadProjects();
+                            this.i2vForm.project_id = project_id;
+                        } catch (err) {
+                            this.showToast('Khong tao duoc du an: ' + err.message, 'error');
+                            return;
+                        }
+                    }
+
+                    const images_b64 = this.i2vForm.image_files.map(f => ({ b64: f.b64, mime: f.mime, name: f.name }));
+                    const rawPrompt = (this.i2vForm.prompt || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+                    const parsePromptBatch = (text) => {
+                        if (!text) return [];
+                        // Quy ước nhập của hệ thống: MỖI DÒNG KHÔNG RỖNG = 1 PROMPT.
+                        // Không tách theo paragraph để tránh gom nhiều dòng thành 1 prompt.
+                        return text
+                            .split('\n')
+                            .map(p => p.replace(/\s+/g, ' ').trim())
+                            .filter(Boolean);
+                    };
+                    const isFramesMode = this.i2vForm.mode === 'frames';
+                    const promptsToSubmit = parsePromptBatch(rawPrompt);
+
+                    this.i2vCreating = true;
+                    try {
+                        await this.apiCall('/veo/create-i2v', 'POST', {
+                            project_id,
+                            prompt: rawPrompt,
+                            model: this.i2vForm.model,
+                            screen_ratio: this.i2vForm.screen_ratio,
+                            images_b64,
+                            mode: this.i2vForm.mode
+                        });
+
+                        const perPrompt = isFramesMode ? 1 : images_b64.length;
+                        const totalTasks = promptsToSubmit.length * perPrompt;
+                        this.showToast(`Da gui ${totalTasks} tac vu I2V (${promptsToSubmit.length} prompt)! Dang chuyen...`, 'success');
+                        this.i2vForm.image_files = [];
+                        this.i2vForm.new_project_name = '';
+                        this.i2vForm.prompt = '';
+                        await this.loadProjects();
+                        setTimeout(() => {
+                            this.videos = [];
+                            this.selectedProjectId = project_id;
+                            this.activeMenu = 'video_gallery';
+                            this.loadVideos();
+                        }, 800);
+                    } catch (err) {
+                        this.showToast(`Loi I2V (${promptsToSubmit.length} prompt): ` + err.message, 'error');
+                    } finally {
+                        this.i2vCreating = false;
+                    }
+                },
+
+                async _createI2VFromExcel() {
+                    const tasks = this.i2vForm.excelTasks;
+                    let project_id = this.i2vForm.project_id;
+                    if (project_id === 'NEW') {
+                        const pname = this.i2vForm.new_project_name.trim() || 'I2V Excel Project';
+                        try {
+                            const newProj = await this.apiCall('/veo/project', 'POST', { name: pname });
+                            project_id = newProj.id;
+                            await this.loadProjects();
+                            this.i2vForm.project_id = project_id;
+                        } catch (err) {
+                            this.showToast('Khong tao duoc du an: ' + err.message, 'error');
+                            return;
+                        }
+                    }
+                    this.i2vCreating = true;
+                    let successCount = 0;
+                    try {
+                        for (const task of tasks) {
+                            const images_payload = task.image_paths.map(p => {
+                                if (p.startsWith('http://') || p.startsWith('https://')) {
+                                    return { url: p, name: p.split('/').pop(), mime: 'image/jpeg' };
+                                }
+                                return { path: p, name: p.split(/[\\/]/).pop(), mime: 'image/jpeg' };
+                            });
+                            await this.apiCall('/veo/create-i2v', 'POST', {
+                                project_id,
+                                prompt: task.prompt,
+                                model: this.i2vForm.model,
+                                screen_ratio: this.i2vForm.screen_ratio,
+                                images_b64: images_payload,
+                                mode: 'multi'
+                            });
+                            successCount++;
+                        }
+                        this.showToast(`Da gui ${successCount} tac vu I2V tu Excel!`, 'success');
+                        this.i2vForm.excelTasks = [];
+                        this.i2vForm.excelImportName = '';
+                        this.i2vForm.new_project_name = '';
+                        this.i2vForm.prompt = '';
+                        await this.loadProjects();
+                        setTimeout(() => {
+                            this.videos = [];
+                            this.selectedProjectId = project_id;
+                            this.activeMenu = 'video_gallery';
+                            this.loadVideos();
+                        }, 800);
+                    } catch (err) {
+                        this.showToast(`Loi I2V Excel (${successCount}/${tasks.length} thanh cong): ` + err.message, 'error');
+                    } finally {
+                        this.i2vCreating = false;
+                    }
+                },
+
+                redirectRemovedRoutes() {
+                    const removedRoutes = new Set([
+                        'create_video',
+                        'create_image',
+                        'create_i2v',
+                        'video_gallery',
+                        'docs'
+                    ]);
+                    const firstPath = window.location.pathname.replace(/^\/|\/$/g, '').split('/')[0];
+                    if (removedRoutes.has(firstPath)) {
+                        this.activeMenu = 'veo_accounts';
+                        window.history.replaceState(null, null, '/veo_accounts');
+                    }
+                },
+
+                syncLoginPath() {
+                    if (!this.isLoggedIn && window.location.pathname !== '/login') {
+                        window.history.replaceState(null, null, '/login');
+                    }
+                },
+
+                get currentMediaMenuItem() {
+                    return (this.mediaMenuItems || []).find(item => item.key === this.activeMenu);
+                },
+
+                get mediaConfigs() {
+                    return {
+                        media_image: { title: 'Tạo ảnh thường', method: 'POST', endpoint: '/api/veo/images', models: ['NARWHAL'], imageCount: 0 },
+                        media_image_4k: { title: 'Tạo ảnh 4K', method: 'POST', endpoint: '/api/veo/images/4k', models: ['NARWHAL'], imageCount: 0 },
+                        media_video_start: { title: 'Video từ ảnh đầu', method: 'POST', endpoint: '/api/veo/videos/from-start-image', models: ['VEO_3.1_FAST', 'VEO_3.1_I2V_FAST'], imageCount: 1, singleFileField: 'file' },
+                        media_video_start_end: { title: 'Video từ ảnh đầu/cuối', method: 'POST', endpoint: '/api/veo/videos/from-start-end-images', models: ['VEO_3.1_FAST', 'VEO_3.1_I2V_FAST'], imageCount: 2, multiFileField: 'files' },
+                        media_video_reference: { title: 'Video từ ảnh reference', method: 'POST', endpoint: '/api/veo/videos/from-reference-image', models: ['VEO_3.1_FAST', 'VEO_3.1_I2V_FAST'], imageCount: 1, singleFileField: 'file' },
+                        media_images_from_images: { title: 'Ảnh từ nhiều ảnh', method: 'POST', endpoint: '/api/veo/images/from-images', models: ['NARWHAL'], imageCount: 1, multiFileField: 'files', many: true },
+                        media_images_from_images_4k: { title: 'Ảnh từ nhiều ảnh 4K', method: 'POST', endpoint: '/api/veo/images/from-images/4k', models: ['NARWHAL'], imageCount: 1, multiFileField: 'files', many: true },
+                        media_task_list: { title: 'Task đã làm', method: 'GET', endpoint: '/api/veo/tasks', models: ['NARWHAL'], imageCount: 0, listOnly: true },
+                    };
+                },
+
+                get currentConfig() {
+                    return this.mediaConfigs[this.activeMenu] || this.mediaConfigs.media_image;
+                },
+
+                get imageHint() {
+                    const cfg = this.currentConfig;
+                    if (!cfg.imageCount) return '';
+                    if (cfg.endpoint && cfg.endpoint.includes('/videos/')) {
+                        return cfg.many ? 'Có thể dùng nhiều ảnh tham chiếu.' : `Endpoint hiện cần tối thiểu ${cfg.imageCount} ảnh, UI đang hướng dẫn gom ảnh theo từng prompt.`;
+                    }
+                    return cfg.many ? 'Chọn một hoặc nhiều ảnh.' : `Cần đúng ${cfg.imageCount} ảnh.`;
+                },
+
+                resetMediaFormFor(key) {
+                    const cfg = this.mediaConfigs[key] || this.mediaConfigs.media_image;
+                    this.mediaFiles = [];
+                    this.mediaInputMode = 'upload';
+                    this.mediaForm.model = cfg.models[0] || 'NARWHAL';
+                    this.mediaForm.prompt = cfg.endpoint.includes('/videos/') ? 'Camera slowly zooms out' : 'A cinematic cat in rain';
+                    this.mediaForm.screen_ratio = '16:9';
+                    this.mediaForm.count = 1;
+                    this.mediaForm.pathsText = '';
+                    if (!cfg.listOnly) this.loadMediaRuntimeTokens();
+                    if (cfg.listOnly) this.loadMediaTasks();
+                },
+
+                setMediaFiles(fileList) {
+                    const cfg = this.currentConfig;
+                    const files = Array.from(fileList || []);
+                    this.mediaFiles = cfg.many ? files : files.slice(0, cfg.imageCount || 1);
+                    if (!cfg.many && files.length > this.mediaFiles.length) {
+                        this.showToast(`Chỉ lấy ${this.mediaFiles.length} ảnh đầu`, 'error');
+                    }
+                },
+
+                getApiToken() {
+                    return localStorage.getItem('vietauto_apikey') || localStorage.getItem('api_key') || window._apiKey || '';
+                },
+
+                authHeaders(json = false) {
+                    const token = this.getApiToken();
+                    const headers = { 'Authorization': `Bearer ${token}`, 'X-API-Key': token };
+                    if (json) headers['Content-Type'] = 'application/json';
+                    return headers;
+                },
+
+                mediaRequestHeaders(json = false) {
+                    return this.authHeaders(json);
+                },
+
+                async loadMachines() {
+                    this.loadingMachines = true;
+                    try {
+                        const res = await fetch('/api/machines', { headers: this.authHeaders(false) });
+                        const json = await res.json();
+                        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+                        const data = json.data || {};
+                        this.machines = data.machines || [];
+                        this.machineSummary = data.summary || { total: 0, online: 0, accepting: 0, available_slots: 0, running_jobs: 0 };
+                    } catch (err) {
+                        console.error('[MachineRegistry] load failed:', err);
+                        this.showToast('Không tải được danh sách máy: ' + (err.message || err), 'error');
+                    } finally {
+                        this.loadingMachines = false;
+                    }
+                },
+
+                async checkMachine(machineId) {
+                    const id = String(machineId || '').trim();
+                    if (!id) {
+                        this.showToast('Nhập machine_id để kiểm tra', 'error');
+                        return;
+                    }
+                    this.checkingMachine = true;
+                    this.machineCheckId = id;
+                    try {
+                        const res = await fetch(`/api/machines/${encodeURIComponent(id)}`, { headers: this.authHeaders(false) });
+                        const json = await res.json();
+                        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+                        const data = json.data || {};
+                        this.machineCheckResult = data;
+                        if (data.registered && data.machine) {
+                            const exists = this.machines.some(m => m.machine_id === data.machine.machine_id);
+                            if (!exists) this.machines = [data.machine, ...this.machines];
+                        }
+                        this.showToast(data.registered ? 'Machine đã đăng ký' : 'Machine chưa đăng ký', data.registered ? 'success' : 'error');
+                    } catch (err) {
+                        this.showToast('Không kiểm tra được machine: ' + (err.message || err), 'error');
+                    } finally {
+                        this.checkingMachine = false;
+                    }
+                },
+
+                async deleteMachine(machineId) {
+                    const id = String(machineId || '').trim();
+                    if (!id) return;
+                    if (!confirm(`Xóa machine "${id}" khỏi registry?`)) return;
+                    this.deletingMachineId = id;
+                    try {
+                        const res = await fetch(`/api/machines/${encodeURIComponent(id)}`, {
+                            method: 'DELETE',
+                            headers: this.authHeaders(false),
+                        });
+                        const json = await res.json();
+                        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+                        this.machines = this.machines.filter(m => m.machine_id !== id);
+                        this.machineCheckResult = { machine_id: id, registered: false, machine: null };
+                        await this.loadMachines();
+                        this.showToast('Đã xóa machine khỏi registry', 'success');
+                    } catch (err) {
+                        this.showToast('Xóa machine thất bại: ' + (err.message || err), 'error');
+                    } finally {
+                        this.deletingMachineId = null;
+                    }
+                },
+
+                formatMachineHeartbeat(machine) {
+                    const age = machine?.heartbeat_age_seconds;
+                    if (age === null || age === undefined) return 'Chưa heartbeat';
+                    if (age < 60) return `${age}s trước`;
+                    const minutes = Math.floor(age / 60);
+                    if (minutes < 60) return `${minutes}m trước`;
+                    return `${Math.floor(minutes / 60)}h trước`;
+                },
+
+                mediaPromptLines() {
+                    return (this.mediaForm.prompt || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                },
+
+                mediaTotalTasks() {
+                    return Math.max(0, this.mediaPromptLines().length) * Math.max(1, Number(this.mediaForm.count || 1));
+                },
+
+                isVideoMediaConfig() {
+                    const cfg = this.currentConfig || {};
+                    return !!(cfg.endpoint && cfg.endpoint.includes('/videos/'));
+                },
+
+                mediaPromptMapKey(index) {
+                    return `prompt_${index}`;
+                },
+
+                getMediaPromptMap(index, field) {
+                    const key = this.mediaPromptMapKey(index);
+                    return (this.mediaPromptImageMap[key] || {})[field] || '';
+                },
+
+                setMediaPromptMap(index, field, value) {
+                    const key = this.mediaPromptMapKey(index);
+                    this.mediaPromptImageMap = {
+                        ...this.mediaPromptImageMap,
+                        [key]: { ...(this.mediaPromptImageMap[key] || {}), [field]: value }
+                    };
+                },
+
+                mediaMappingUploadKey(index, field) {
+                    return `${this.mediaPromptMapKey(index)}_${field}`;
+                },
+
+                isMediaMappingUploading(index, field) {
+                    return !!this.mediaMappingUploading[this.mediaMappingUploadKey(index, field)];
+                },
+
+                async uploadMediaMappingFile(index, field, file) {
+                    if (!file) return;
+                    const uploadKey = this.mediaMappingUploadKey(index, field);
+                    this.mediaMappingUploading = { ...this.mediaMappingUploading, [uploadKey]: true };
+                    try {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        const res = await fetch('/api/veo/media/upload-reference', {
+                            method: 'POST',
+                            headers: this.mediaRequestHeaders(false),
+                            body: fd,
+                        });
+                        const json = await res.json();
+                        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+                        const path = json.data?.path || '';
+                        if (!path) throw new Error('Server không trả về path ảnh');
+                        this.setMediaPromptMap(index, field, path);
+                        this.showToast(`Đã upload ảnh cho prompt #${index + 1}`, 'success');
+                    } catch (err) {
+                        this.showToast(err.message || 'Upload ảnh thất bại', 'error');
+                    } finally {
+                        const next = { ...this.mediaMappingUploading };
+                        delete next[uploadKey];
+                        this.mediaMappingUploading = next;
+                    }
+                },
+
+                mediaMappingValue(index, field) {
+                    return String(this.getMediaPromptMap(index, field) || '').trim();
+                },
+
+                mediaMappingNeedsEnd() {
+                    return this.activeMenu === 'media_video_start_end';
+                },
+
+                mediaMappingMissing(index, field) {
+                    if (!this.currentConfig.imageCount || !this.isVideoMediaConfig()) return false;
+                    if (field === 'end' && !this.mediaMappingNeedsEnd()) return false;
+                    return !this.mediaMappingValue(index, field);
+                },
+
+                mediaPromptImageErrors() {
+                    if (!this.currentConfig.imageCount || !this.isVideoMediaConfig()) return [];
+                    return this.mediaPromptLines().map((prompt, index) => ({
+                        index,
+                        prompt,
+                        start: this.mediaMappingMissing(index, 'start') ? 'Thiếu ảnh đầu / reference cho prompt này' : '',
+                        end: this.mediaMappingMissing(index, 'end') ? 'Thiếu ảnh cuối cho prompt này' : '',
+                    })).filter(row => row.start || row.end);
+                },
+
+                hasMediaPromptImageErrors() {
+                    return this.mediaPromptImageErrors().length > 0;
+                },
+
+                buildMediaMappingPayload() {
+                    const prompts = this.mediaPromptLines();
+                    const imagePaths = prompts.map((_, index) => this.mediaMappingValue(index, 'start'));
+                    const endImagePaths = prompts.map((_, index) => this.mediaMappingValue(index, 'end'));
+                    return { imagePaths, endImagePaths };
+                },
+
+                mediaTokenLines() {
+                    return (this.mediaForm.tokensText || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                },
+
+                mediaProxyLines() {
+                    return (this.mediaForm.proxiesText || '').split(/\r?\n/).map(s => s.trim());
+                },
+
+                async loadMediaRuntimeTokens(force = false) {
+                    if (this.mediaRuntimeLoading) return;
+                    if (this.mediaRuntimeLoaded && !force && this.mediaTokenLines().length) return;
+                    const token = this.getApiToken();
+                    if (!token) return;
+                    this.mediaRuntimeLoading = true;
+                    try {
+                        const res = await fetch('/api/admin/veo/account-sessions', { headers: this.authHeaders(false) });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) throw new Error(data.error || 'Không lấy được danh sách token');
+                        const items = (data.data?.items || []).filter(x => x && x.ok && x.token);
+                        this.mediaForm.tokensText = items.map(x => x.token).join('\n');
+                        this.mediaForm.proxiesText = items.map(x => x.proxy || '').join('\n');
+                        this.mediaRuntimeLoaded = true;
+                        if (items.length) this.showToast(`Đã nạp ${items.length} token runtime`, 'success');
+                    } catch (err) {
+                        console.warn('loadMediaRuntimeTokens failed', err);
+                        this.showToast('Không tự nạp được token: ' + err.message, 'error');
+                    } finally {
+                        this.mediaRuntimeLoading = false;
+                    }
+                },
+
+                parseMediaPaths() {
+                    return (this.mediaForm.pathsText || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                },
+
+                parseMediaBase64Images() {
+                    if (!this.mediaForm.base64Text.trim()) return [];
+                    const parsed = JSON.parse(this.mediaForm.base64Text);
+                    return Array.isArray(parsed) ? parsed : [parsed];
+                },
+
+                validateMediaPayload() {
+                    const cfg = this.currentConfig;
+                    if (cfg.listOnly) return;
+                    if (this.mediaPromptLines().length < 1) throw new Error('Thiếu prompt');
+                    if (this.mediaForm.project_id === 'NEW' && !(this.mediaForm.new_project_name || '').trim()) throw new Error('Thiếu tên project mới');
+                    if (!cfg.imageCount) return;
+                    if (this.isVideoMediaConfig()) {
+                        if (this.hasMediaPromptImageErrors()) throw new Error('Có prompt đang thiếu ảnh, kiểm tra ô màu đỏ trong bảng mapping');
+                        return;
+                    }
+                    const count = this.mediaInputMode === 'upload'
+                        ? this.mediaFiles.length
+                        : (this.mediaInputMode === 'path' ? this.parseMediaPaths().length : this.parseMediaBase64Images().length);
+                    if (count < cfg.imageCount) throw new Error(`Cần tối thiểu ${cfg.imageCount} ảnh`);
+                },
+
+                async submitMediaApi() {
+                    if (this.currentConfig.listOnly) {
+                        return this.loadMediaTasks();
+                    }
+                    this.mediaSubmitting = true;
+                    try {
+                        this.validateMediaPayload();
+                        if (!this.mediaTokenLines().length) {
+                            await this.loadMediaRuntimeTokens(true);
+                        }
+                        const cfg = this.currentConfig;
+                        const prompts = this.mediaPromptLines();
+                        const runtimeTokens = this.mediaTokenLines();
+                        const runtimeProxies = this.mediaProxyLines();
+                        const base = {
+                            prompt: prompts.join('\n'),
+                            prompts,
+                            project_id: this.mediaForm.project_id,
+                            new_project_name: this.mediaForm.new_project_name,
+                            count: Math.max(1, Number(this.mediaForm.count || 1)),
+                            model: this.mediaForm.model,
+                            screen_ratio: this.mediaForm.screen_ratio,
+                            runtime_tokens: runtimeTokens,
+                            runtime_proxies: runtimeProxies,
+                            tokens_text: runtimeTokens.join('\n'),
+                            proxies_text: runtimeProxies.join('\n')
+                        };
+                        if (cfg.imageCount && this.isVideoMediaConfig()) {
+                            const mappingPayload = this.buildMediaMappingPayload();
+                            base.image_paths = mappingPayload.imagePaths;
+                            if (this.mediaMappingNeedsEnd()) base.end_image_paths = mappingPayload.endImagePaths;
+                        }
+                        let res;
+                        if (!cfg.imageCount || this.mediaInputMode !== 'upload' || this.isVideoMediaConfig()) {
+                            if (cfg.imageCount && !this.isVideoMediaConfig() && this.mediaInputMode === 'path') base.image_paths = this.parseMediaPaths();
+                            if (cfg.imageCount && !this.isVideoMediaConfig() && this.mediaInputMode === 'base64') base.images = this.parseMediaBase64Images();
+                            res = await fetch(cfg.endpoint, { method: cfg.method, headers: this.mediaRequestHeaders(true), body: JSON.stringify(base) });
+                        } else {
+                            const fd = new FormData();
+                            fd.append('prompt', base.prompt);
+                            fd.append('prompts', JSON.stringify(base.prompts));
+                            fd.append('project_id', base.project_id);
+                            fd.append('new_project_name', base.new_project_name || '');
+                            fd.append('count', String(base.count));
+                            fd.append('model', base.model);
+                            fd.append('screen_ratio', base.screen_ratio);
+                            fd.append('runtime_tokens', JSON.stringify(base.runtime_tokens));
+                            fd.append('runtime_proxies', JSON.stringify(base.runtime_proxies));
+                            fd.append('tokens_text', base.tokens_text);
+                            fd.append('proxies_text', base.proxies_text);
+                            if (cfg.singleFileField) fd.append(cfg.singleFileField, this.mediaFiles[0]);
+                            else this.mediaFiles.forEach(file => fd.append(cfg.multiFileField || 'files', file));
+                            res = await fetch(cfg.endpoint, { method: cfg.method, headers: this.mediaRequestHeaders(false), body: fd });
+                        }
+                        const json = await res.json();
+                        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+                        const data = json.data || {};
+                        const items = Array.isArray(data.items) ? data.items : [data].filter(Boolean);
+                        const task = { ...(items[0] || data), screen: cfg.title, created_at: Date.now() };
+                        task.id = task.id || json.id || json.task_id;
+                        this.lastMediaTask = task;
+                        this.showToast(`Đã tạo ${data.total || items.length || 1} task trong project`, 'success');
+                        this.mediaTaskProjectId = data.project_id || task.project_id || '';
+                        this.loadProjects();
+                        this.loadMediaTasks();
+                        if (task.id) setTimeout(() => this.pollMediaTask(task), 1200);
+                    } catch (err) {
+                        this.showToast(err.message, 'error');
+                    } finally {
+                        this.mediaSubmitting = false;
+                    }
+                },
+
+                async loadMediaTasks() {
+                    this.mediaTaskListLoading = true;
+                    try {
+                        const params = new URLSearchParams({ limit: '200' });
+                        if (this.mediaTaskProjectId) params.set('project_id', this.mediaTaskProjectId);
+                        const res = await fetch(`/api/veo/tasks?${params.toString()}`, { headers: this.mediaRequestHeaders(false) });
+                        const json = await res.json();
+                        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+                        const data = json.data || {};
+                        this.mediaTaskList = data.items || (Array.isArray(data) ? data : []);
+                        this.mediaTaskProjects = data.projects || this.buildMediaTaskProjects(this.mediaTaskList);
+                        if (this.selectedMediaTaskProject) {
+                            const currentId = this.selectedMediaTaskProject.project_id;
+                            this.selectedMediaTaskProject = this.mediaTaskProjects.find(p => p.project_id === currentId) || this.mediaTaskProjects[0] || null;
+                        } else {
+                            this.selectedMediaTaskProject = this.mediaTaskProjects[0] || null;
+                        }
+                    } catch (err) {
+                        this.showToast('Lỗi tải task: ' + err.message, 'error');
+                    } finally {
+                        this.mediaTaskListLoading = false;
+                    }
+                },
+
+                buildMediaTaskProjects(tasks) {
+                    const groups = {};
+                    (tasks || []).forEach(task => {
+                        const pid = task.project_id || '__none__';
+                        if (!groups[pid]) {
+                            groups[pid] = { project_id: task.project_id || '', project_name: task.project_name || task.project_id || 'Không có project', total: 0, completed: 0, failed: 0, processing: 0, pending: 0, started_at: null, finished_at: null, duration_seconds: null, tasks: [] };
+                        }
+                        const g = groups[pid];
+                        g.tasks.push(task);
+                        g.total += 1;
+                        const s = String(task.status || '').toUpperCase();
+                        if (s === 'COMPLETED') g.completed += 1;
+                        else if (s === 'FAILED' || s === 'ERROR') g.failed += 1;
+                        else if (s === 'PROCESSING' || s === 'CHECKING') g.processing += 1;
+                        else g.pending += 1;
+                        const created = Number(task.created_at || 0);
+                        const finished = Number(task.completed_at || task.updated_at || 0);
+                        if (created && (!g.started_at || created < g.started_at)) g.started_at = created;
+                        if (finished && (!g.finished_at || finished > g.finished_at)) g.finished_at = finished;
+                    });
+                    return Object.values(groups).map(g => ({ ...g, duration_seconds: g.started_at && g.finished_at ? Math.max(0, g.finished_at - g.started_at) : null }));
+                },
+
+                selectMediaTaskProject(project) {
+                    this.selectedMediaTaskProject = project;
+                },
+
+                async pollMediaTask(task) {
+                    try {
+                        const res = await fetch(`/api/veo/tasks/${encodeURIComponent(task.id)}`, { headers: this.mediaRequestHeaders(false) });
+                        const json = await res.json();
+                        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+                        const updated = { ...task, ...(json.data || {}) };
+                        this.lastMediaTask = updated;
+                        this.mediaTaskList = this.mediaTaskList.map(item => item.id === updated.id ? updated : item);
+                        if (this.selectedMediaTaskProject) {
+                            this.selectedMediaTaskProject.tasks = (this.selectedMediaTaskProject.tasks || []).map(item => item.id === updated.id ? updated : item);
+                        }
+                    } catch (err) {
+                        this.lastMediaTask = { ...task, status: 'FAILED', error: err.message };
+                    }
+                },
+
+                mediaTaskPrompt(task) {
+                    const prompts = task?.prompts;
+                    if (Array.isArray(prompts) && prompts.length) return String(prompts[0] || '').trim();
+                    if (typeof prompts === 'string' && prompts.trim()) return prompts.trim();
+                    if (task?.prompt) return String(task.prompt).trim();
+                    const name = String(task?.name || '').trim();
+                    return name.includes(':') ? name.split(':').slice(1).join(':').trim() : name;
+                },
+
+                truncateText(text, max = 120) {
+                    const value = String(text || '').replace(/\s+/g, ' ').trim();
+                    return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+                },
+
+                mediaTaskPromptPreview(task) {
+                    const model = task?.model || 'MEDIA';
+                    const prompt = this.mediaTaskPrompt(task) || task?.action_type || 'Media task';
+                    return `${model}: ${this.truncateText(prompt, 96)}`;
+                },
+
+                mediaTaskTypeLabel(task) {
+                    const action = String(task?.action_type || '').toUpperCase();
+                    const refs = this.mediaTaskImageRefs(task);
+                    if (action === 'FRAMES_TO_VIDEO') return 'Ảnh đầu + ảnh cuối → Video';
+                    if (action === 'IMAGE_TO_VIDEO' || action === 'IMAGES_TO_VIDEO') return refs.length ? 'Ảnh reference/đầu → Video' : 'Ảnh → Video';
+                    if (action === 'CREATE_IMAGE') return refs.length ? 'Ảnh reference → Ảnh' : 'Text → Ảnh';
+                    if (action === 'TEXT_TO_VIDEO') return 'Text → Video';
+                    return action || 'Media task';
+                },
+
+                mediaTaskImageRefs(task) {
+                    const refs = [];
+                    const addRefs = (items, labelPrefix = 'Ảnh') => {
+                        const list = Array.isArray(items) ? items : (items ? [items] : []);
+                        list.forEach((item, index) => {
+                            let value = '';
+                            if (typeof item === 'string') value = item;
+                            else if (item && typeof item === 'object') value = item.path || item.local_path || item.file_path || item.url || item.saved_path || item.output_path || '';
+                            value = String(value || '').trim();
+                            if (value && !refs.some(ref => ref.value === value)) refs.push({ label: `${labelPrefix} ${index + 1}`, value });
+                        });
+                    };
+                    addRefs(task?.image_refs, 'Ảnh ref');
+                    addRefs(task?.image_paths, 'Ảnh ref');
+                    addRefs(task?.raw_result?.image_paths, 'Ảnh ref');
+                    addRefs(task?.raw_result?.reference_paths, 'Ảnh ref');
+                    addRefs(task?.raw_result?.end_reference_paths, 'Ảnh cuối');
+                    addRefs(task?.raw_result?.end_image_paths, 'Ảnh cuối');
+                    return refs;
+                },
+
+                mediaShortPath(path) {
+                    const value = String(path || '');
+                    const parts = value.split(/[\\/]/).filter(Boolean);
+                    return parts.slice(-2).join('/') || value;
+                },
+
+                mediaTaskTooltip(task) {
+                    const refs = this.mediaTaskImageRefs(task).map(ref => `${ref.label}: ${ref.value}`).join('\n');
+                    return [
+                        this.mediaTaskTypeLabel(task),
+                        `Model: ${task?.model || '—'}`,
+                        `Ratio: ${task?.screen_ratio || '—'}`,
+                        `Prompt: ${this.mediaTaskPrompt(task) || '—'}`,
+                        refs,
+                    ].filter(Boolean).join('\n');
+                },
+
+                async copyText(text, message = 'Đã copy') {
+                    const value = String(text || '');
+                    try {
+                        if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(value);
+                        else {
+                            const el = document.createElement('textarea');
+                            el.value = value;
+                            el.style.position = 'fixed';
+                            el.style.opacity = '0';
+                            document.body.appendChild(el);
+                            el.select();
+                            document.execCommand('copy');
+                            document.body.removeChild(el);
+                        }
+                        this.showToast(message, 'success');
+                    } catch (err) {
+                        this.showToast('Không copy được: ' + err.message, 'error');
+                    }
+                },
+
+                async copyImageToClipboard(path) {
+                    const value = String(path || '').trim();
+                    if (!value) return this.showToast('Không có ảnh để copy', 'warning');
+                    try {
+                        if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+                            await this.copyText(value, 'Trình duyệt không hỗ trợ copy ảnh, đã copy path');
+                            return;
+                        }
+                        const res = await fetch(`/api/media/image-blob?path=${encodeURIComponent(value)}`, {
+                            headers: this.mediaRequestHeaders(false),
+                        });
+                        if (!res.ok) {
+                            let message = `HTTP ${res.status}`;
+                            try {
+                                const data = await res.json();
+                                message = data?.error || message;
+                            } catch (_) {}
+                            throw new Error(message);
+                        }
+                        const sourceBlob = await res.blob();
+                        const bitmap = await createImageBitmap(sourceBlob);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = bitmap.width;
+                        canvas.height = bitmap.height;
+                        canvas.getContext('2d').drawImage(bitmap, 0, 0);
+                        const pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+                        if (!pngBlob) throw new Error('Không convert được ảnh sang PNG');
+                        await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+                        this.showToast('Đã copy ảnh vào clipboard', 'success');
+                    } catch (err) {
+                        this.showToast('Không copy được ảnh: ' + (err?.message || err), 'error');
+                    }
+                },
+
+                mediaStatusClass(status) {
+                    const s = String(status || '').toUpperCase();
+                    if (s === 'COMPLETED') return 'text-bg-success';
+                    if (s === 'FAILED' || s === 'ERROR') return 'text-bg-danger';
+                    if (s === 'CHECKING') return 'text-bg-info';
+                    return 'text-bg-warning';
+                },
+
+                formatDurationHuman(seconds) {
+                    const value = Number(seconds || 0);
+                    if (!value) return '—';
+                    const h = Math.floor(value / 3600);
+                    const m = Math.floor((value % 3600) / 60);
+                    const s = Math.round(value % 60);
+                    if (h > 0) return `${h}h ${m}m ${s}s`;
+                    if (m > 0) return `${m}m ${s}s`;
+                    return `${s}s`;
+                },
+
+                mediaTaskStats() {
+                    const stats = { total: this.mediaTaskList.length, completed: 0, processing: 0, pending: 0, failed: 0 };
+                    this.mediaTaskList.forEach(task => {
+                        const s = String(task.status || '').toUpperCase();
+                        if (s === 'COMPLETED') stats.completed += 1;
+                        else if (s === 'PROCESSING' || s === 'CHECKING') stats.processing += 1;
+                        else if (s === 'FAILED' || s === 'ERROR') stats.failed += 1;
+                        else stats.pending += 1;
+                    });
+                    return stats;
+                },
+
+                async login() {
+                    if (!this.loginForm.username || !this.loginForm.password) return;
+                    this.loading = true;
+                    try {
+                        const res = await fetch(`${API_URL}/admin/login`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.loginForm)
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            localStorage.setItem('vietauto_apikey', data.data.token);
+                            localStorage.setItem('api_key', data.data.token);
+                            window._apiKey = data.data.token;
+                            await this.verifyToken(data.data.token);
+                        } else throw new Error(data.error || 'Đăng nhập thất bại');
+                    } catch (err) {
+                        this.showToast(err.message, 'error');
+                    } finally { this.loading = false; }
+                },
+
+                async verifyToken(token) {
+                    try {
+                        const res = await fetch(`${API_URL}/me`, { headers: this.authHeaders(false) });
+                        const data = await res.json();
+                        if (data.success) {
+                            this.currentUser = data.data;
+                            this.isLoggedIn = true;
+
+                            // Watch activeMenu: auto-check cookie khi switch qua tab credential pool
+                            this.$watch('activeMenu', (val) => {
+                                if (val === 'veo_accounts' && this.isAdmin) {
+                                    this.loadVeoAccounts();
+                                    this.loadAccountActivities();
+                                    this.loadCaptchaStats();
+                                    this.loadQueueSettings();
+                                }
+                                if (val === 'account_tokens' && this.isAdmin) {
+                                    this.loadAccountTokenMonitor();
+                                }
+                                if (val === 'job_results') {
+                                    this.loadUserJobResults();
+                                }
+                            });
+
+
+                            // Initialize default active menu if path didn't provide one
+                            if (!window.location.pathname || window.location.pathname === '/' || window.location.pathname === '/login') {
+                                this.activeMenu = 'media_image';
+                                window.history.replaceState(null, null, '/media_image');
+                            }
+
+                            // F5 trực tiếp tại /account_tokens hoặc /job_results: activeMenu được set trước watcher,
+                            // nên chủ động reload dữ liệu UI từ API sau khi verify token.
+                            if (this.activeMenu === 'account_tokens' && this.isAdmin) {
+                                this.loadAccountTokenMonitor();
+                            }
+                            if (this.activeMenu === 'job_results') {
+                                this.loadUserJobResults();
+                            }
+
+                            // Switch anti-flicker class only AFTER state is ready
+                            document.documentElement.classList.remove('not-logged-in');
+                            document.documentElement.classList.add('logged-in');
+
+                            if (this.isAdmin) { this.loadUsers(); this.loadVeoAccounts(); this.loadGlobalProxy(); this._startCaptchaPolling(); }
+                            if (this.hasPermission('VIEW_VIDEO')) this.loadVideos();
+                            if (this.hasPermission('CREATE_VIDEO')) this.loadProjects();
+                        } else throw new Error(data.error || 'Phiên đã hết hạn');
+                    } catch (err) { this.logout(); }
+                },
+
+                logout() {
+                    localStorage.removeItem('vietauto_apikey');
+                    localStorage.removeItem('api_key');
+                    window._apiKey = '';
+                    this.loginForm = { username: '', password: '' };
+                    this.currentUser = null; this.isLoggedIn = false;
+                    document.documentElement.classList.remove('logged-in', 'not-logged-in');
+                    window.history.pushState(null, null, '/login');
+                },
+
+                async apiCall(endpoint, method = 'GET', body = null) {
+                    const config = { method, headers: this.authHeaders(true) };
+                    if (body) config.body = JSON.stringify(body);
+                    
+                    let url = `${API_URL}${endpoint}`;
+                    if (method === 'GET') {
+                        url += (url.includes('?') ? '&' : '?') + '_t=' + Date.now();
+                    }
+                    
+                    const res = await fetch(url, config);
+                    if (res.status === 403) throw new Error("Bạn không có quyền thực hiện chức năng này (403 Forbidden)");
+                    const data = await res.json();
+                    if (!data.success) throw new Error(data.error || 'Server error');
+                    return data.data;
+                },
+
+                // ---- VIDEO SYTEM ----
+                async loadProjects() {
+                    try {
+                        this.projects = await this.apiCall('/veo/projects');
+                        // Initialize prev states on first load to avoid false notifications
+                        if (Object.keys(this._prevProjectStates).length === 0) {
+                            for (const p of this.projects) {
+                                const total = p.total_videos || 0;
+                                const completed = p.completed_images_count !== undefined ? p.completed_images_count : (p.completed_count || 0);
+                                const failed = p.failed_count || 0;
+                                const pending = p.pending_count || 0;
+                                const isDone = total > 0 && pending === 0 && (completed + failed) >= total;
+                                this._prevProjectStates[p.id] = isDone;
+                                if (isDone) this._notifiedProjects.add(p.id);
+                            }
+                        }
+                    } catch (err) { }
+                },
+
+                async loadUserJobResults(skip = 0) {
+                    this.loadingJobResults = true;
+                    this.jobResultsSkip = Math.max(0, Number(skip) || 0);
+                    try {
+                        const params = new URLSearchParams({
+                            skip: String(this.jobResultsSkip),
+                            limit: String(this.jobResultsLimit),
+                        });
+                        if (this.jobResultsSearch.trim()) params.set('search', this.jobResultsSearch.trim());
+                        if (this.jobResultsProject.trim()) params.set('project_name', this.jobResultsProject.trim());
+                        if (this.jobResultsStatus.trim()) params.set('status', this.jobResultsStatus.trim());
+                        const data = await this.apiCall(`/user-job-results?${params.toString()}`);
+                        this.jobResults = data.items || [];
+                        this.jobResultsTotal = data.total || 0;
+                        this.jobResultsSkip = data.skip || 0;
+                        this.jobResultsLimit = data.limit || this.jobResultsLimit;
+                        this.$nextTick(() => this.renderJobResultsGrid());
+                    } catch (err) {
+                        this.showToast('Lỗi tải danh sách job: ' + err.message, 'error');
+                    } finally {
+                        this.loadingJobResults = false;
+                    }
+                },
+
+                renderJobResultsGrid() {
+                    const mount = document.getElementById('job-results-grid');
+                    if (!mount || typeof gridjs === 'undefined') return;
+
+                    const rows = (this.jobResults || []).map((item) => {
+                        const promptText = item.prompt || '—';
+                        const promptPreview = this.truncateText(promptText, 180);
+                        const promptHtml = `
+                            <div class="job-result-prompt-cell text-left" title="${this.escapeHtml(promptText)}">
+                                <div class="max-h-[4.75rem] overflow-hidden whitespace-pre-wrap break-words text-left leading-5 cursor-help">${this.escapeHtml(promptPreview)}</div>
+                            </div>
+                            ${item.error ? `<div class="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-left text-[12px] text-rose-700 leading-6 break-words" title="${this.escapeHtml(item.error)}">${this.escapeHtml(this.truncateText(item.error, 220))}</div>` : ''}`;
+                        return [
+                        this.jobResultDisplayName(item),
+                        item.created_time || this.formatTimestamp(item.created_at),
+                        gridjs.html(promptHtml),
+                        gridjs.html(`<span class="inline-flex items-center justify-start rounded-full px-4 py-2 text-left text-[11px] font-black tracking-wide leading-5 ${item.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${this.escapeHtml(item.status || '—')}</span>`),
+                        this.formatDuration(item.duration_seconds),
+                        item.download_url
+                            ? gridjs.html(`<a href="${this.escapeHtml(item.download_url)}" target="_blank" class="inline-flex items-center justify-start gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-left text-xs font-black text-white hover:bg-indigo-700 shadow-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i>Mở</a>`)
+                            : '—',
+                        ];
+                    });
+
+                    const config = {
+                        columns: [
+                            { name: 'Name', width: '170px' },
+                            { name: 'Created Time', width: '190px' },
+                            { name: 'Prompt', width: '520px' },
+                            { name: 'Status', width: '160px' },
+                            { name: 'Duration', width: '150px' },
+                            { name: 'Link', width: '120px' },
+                        ],
+                        data: rows,
+                        sort: false,
+                        search: false,
+                        pagination: false,
+                        autoWidth: false,
+                        className: {
+                            table: 'text-left text-black',
+                            th: 'text-left',
+                            td: 'text-left',
+                        },
+                        language: {
+                            noRecordsFound: 'Chưa có dữ liệu hoặc filter không có kết quả.',
+                            loading: 'Đang tải danh sách...',
+                        },
+                    };
+
+                    if (this.jobResultsGrid) {
+                        this.jobResultsGrid.updateConfig(config).forceRender();
+                    } else {
+                        mount.innerHTML = '';
+                        this.jobResultsGrid = new gridjs.Grid(config).render(mount);
+                    }
+                },
+
+                jobResultDisplayName(item) {
+                    const username = String(item?.username || '').trim();
+                    if (username && username !== '—') return username;
+
+                    const userName = String(item?.user_name || item?.owner_username || '').trim();
+                    if (userName && userName !== '—') return userName;
+
+                    return this.currentUser?.username || '—';
+                },
+
+                escapeHtml(value) {
+                    return String(value ?? '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                },
+
+                truncateText(value, limit = 260) {
+                    const text = String(value ?? '');
+                    if (text.length <= limit) return text;
+                    return `${text.slice(0, Math.max(0, limit - 3)).trimEnd()}...`;
+                },
+
+                formatDuration(seconds) {
+                    const value = Number(seconds || 0);
+                    if (!value) return '—';
+                    return `${value.toFixed(2)}s`;
+                },
+
+                formatTimestamp(value) {
+                    const ts = Number(value || 0);
+                    if (!ts) return '—';
+                    const date = new Date(ts * 1000);
+                    if (Number.isNaN(date.getTime())) return '—';
+                    const pad = (n) => String(n).padStart(2, '0');
+                    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+                },
+
+                async loadQueueSettings() {
+                    try {
+                        const data = await this.apiCall('/veo/queue/settings');
+                        this.queueStats = { ...this.queueStats, ...data };
+                    } catch (err) { /* silent */ }
+                },
+
+                async updateQueueMax(n) {
+                    n = Math.max(1, parseInt(n) || 1);
+                    try {
+                        const data = await this.apiCall('/admin/settings/queue_advanced', 'PUT', { max_concurrent: n });
+                        this.queueStats.max_concurrent = data.max_concurrent;
+                        this.showToast(`✅ Số luồng Veo: ${data.max_concurrent}`, 'success');
+                        await this.loadQueueSettings();
+                    } catch (err) {
+                        this.showToast('Lỗi cập nhật luồng: ' + err.message, 'error');
+                    }
+                },
+
+                async updateQueueMaxGrok(n) {
+                    n = Math.max(1, parseInt(n) || 1);
+                    try {
+                        const data = await this.apiCall('/admin/settings/queue_advanced', 'PUT', {
+                            max_concurrent: this.queueStats.max_concurrent,
+                            max_concurrent_grok: n,
+                        });
+                        this.queueStats.max_concurrent_grok = data.max_concurrent_grok;
+                        this.showToast(`✅ Số luồng Grok: ${data.max_concurrent_grok}`, 'success');
+                        await this.loadQueueSettings();
+                    } catch (err) {
+                        this.showToast('Lỗi cập nhật luồng Grok: ' + err.message, 'error');
+                    }
+                },
+
+                async createNewProject() {
+                    const name = prompt("Nhập tên dự án mới:");
+                    if (!name) return;
+                    try {
+                        const newProj = await this.apiCall('/veo/project', 'POST', { name });
+                        this.showToast('Tạo dự án mới thành công');
+                        await this.loadProjects();
+                        this.videoForm.project_id = newProj.id;
+                    } catch (err) {
+                        this.showToast(err.message, 'error');
+                    }
+                },
+
+                async deleteProject(projectId) {
+                    if (!projectId) return;
+                    if (!confirm("Bạn có chắc chắn muốn xoá toàn bộ dự án này không? (Bao gồm tất cả video trong dự án)")) return;
+
+                    try {
+                        await this.apiCall(`/veo/project/${projectId}`, 'DELETE');
+                        this.showToast('Đã xoá dự án thành công!', 'success');
+                        this.selectedProjectId = null;
+                        await this.loadProjects();
+                    } catch (err) {
+                        this.showToast(err.message, 'error');
+                    }
+                },
+
+                async handleFileUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const text = await file.text();
+                    this.batchForm.promptsText = text;
+                    event.target.value = ''; // reset file input
+                    this.showToast('Import file prompts thành công!', 'success');
+                },
+
+                async handleVideoExcelImport(event) {
+                    const file = event.target.files[0];
+                    event.target.value = '';
+                    if (!file) return;
+
+                    if (typeof XLSX === 'undefined') {
+                        this.showToast('Thư viện SheetJS chưa tải xong, thử lại sau!', 'error');
+                        return;
+                    }
+
+                    try {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                        const sheetName = workbook.SheetNames[0];
+                        const sheet = workbook.Sheets[sheetName];
+                        // Đọc raw data (không dùng header) để lấy chính xác cột thứ 2
+                        const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+                        if (!rawRows || rawRows.length === 0) {
+                            this.showToast('File Excel không có dữ liệu!', 'error');
+                            return;
+                        }
+
+                        // Bỏ dòng header (dòng đầu tiên), lấy cột thứ 2 (index 1) làm prompt
+                        const prompts = [];
+                        for (let i = 1; i < rawRows.length; i++) {
+                            const row = rawRows[i];
+                            const prompt = (row[1] || '').toString().replace(/[\r\n]+/g, ' ').trim();  // Cột thứ 2 (index 1), gộp newline trong cell
+                            if (prompt) {
+                                prompts.push(prompt);
+                            }
+                        }
+
+                        if (prompts.length === 0) {
+                            this.showToast('Không tìm thấy prompt nào ở cột thứ 2!', 'error');
+                            return;
+                        }
+
+                        // Ghi vào textarea (mỗi prompt 1 dòng)
+                        this.batchForm.promptsText = prompts.join('\n');
+                        this.showToast(`Đã đọc ${prompts.length} prompts từ "${file.name}" (cột 2)`, 'success');
+                    } catch (err) {
+                        this.showToast('Không đọc được file Excel: ' + err.message, 'error');
+                    }
+                },
+
+                async createVideo() {
+                    const prompts = this.batchForm.promptsText.split('\n').map(p => p.trim()).filter(p => p);
+
+                    const isNewProject = this.batchForm.project_id === 'NEW';
+                    if (isNewProject && !this.batchForm.name) {
+                        this.showToast('Vui lòng nhập tên dự án mới', 'error');
+                        return;
+                    }
+                    if (prompts.length === 0) {
+                        this.showToast('Vui lòng nhập ít nhất 1 prompt', 'error');
+                        return;
+                    }
+
+                    // ⚠ Pre-flight: kiểm tra cookie pool nếu không dùng cookie riêng
+                    const hasCustomCookie = this.batchForm.veo_cookie && this.batchForm.veo_cookie.trim();
+                    if (!hasCustomCookie && this.isAdmin && Object.keys(this.cookieHealthMap).length > 0) {
+                        const activeAccIds = this.veoAccounts.filter(a => a.is_active).map(a => a.id);
+                        const badCookies = activeAccIds.filter(id => ['expired', 'revoked'].includes(this.cookieHealthMap[id]?.status));
+                        const goodCookies = activeAccIds.filter(id => this.cookieHealthMap[id]?.status === 'ok' || this.cookieHealthMap[id]?.status === 'warning');
+                        if (activeAccIds.length > 0 && badCookies.length === activeAccIds.length) {
+                            this.showToast('⚠ Tất cả cookie trong Pool đã chết (expired/revoked)! Vào Quản Lý Nhóm Chứng Chỉ để cập nhật cookie mới.', 'error');
+                            return;
+                        } else if (badCookies.length > 0 && goodCookies.length === 0) {
+                            if (!confirm(`Cảnh báo: ${badCookies.length} cookie trong Pool không hoạt động. Bạn có muốn tiếp tục không?`)) return;
+                        }
+                    }
+
+                    this.videoCreating = true;
+                    this.videoStatus.show = true;
+                    this.videoStatus.logs = [];
+
+                    const logName = isNewProject ? this.batchForm.name : `Project ID: ${this.batchForm.project_id}`;
+                    this.logTerminal(`> Khởi tạo Batch Project: ${logName} với ${prompts.length} videos...`);
+
+                    try {
+                        const payload = {
+                            prompts: prompts,
+                            model: this.batchForm.model,
+                            screen_ratio: this.batchForm.screen_ratio,
+                            videos_per_prompt: this.batchForm.videosPerPrompt,
+                            max_threads: this.batchForm.maxThreads
+                        };
+
+                        if (this.batchForm.veo_cookie && this.batchForm.veo_cookie.trim() !== '') {
+                            payload.veo_cookie = this.batchForm.veo_cookie.trim();
+                        }
+                        if (this.batchForm.proxy_url && this.batchForm.proxy_url.trim() !== '') {
+                            payload.proxy_url = this.batchForm.proxy_url.trim();
+                        }
+
+                        if (isNewProject) {
+                            payload.name = this.batchForm.name;
+                        } else {
+                            // Dummy name for the API if project_id exists,
+                            // though the API uses name only when project_id is missing.
+                            payload.name = "Existing Project Update";
+                            payload.project_id = this.batchForm.project_id;
+                        }
+
+                        const data = await this.apiCall('/veo/project/batch-create', 'POST', payload);
+
+                        this.logTerminal(`Batch Task đã gửi lên Background Worker thành công! Project ID: ${data.id}`);
+                        this.logTerminal(`Đang tự động chuyển sang Thư viện Video Queue...`);
+
+                        this.batchForm.promptsText = '';
+                        this.batchForm.name = '';
+                        this.showToast(`Bắt đầu xử lý ${prompts.length} video ngầm!`);
+
+                        // Refresh and switch
+                        await this.loadProjects();
+                        setTimeout(() => {
+                            this.videoStatus.show = false;
+                            this.videos = [];
+                            this.activeMenu = 'video_gallery';
+                            this.selectedProjectId = data.id;
+                            this.loadVideos();
+                        }, 2000);
+
+                    } catch (err) {
+                        this.logTerminal(`ERROR: ${err.message}`);
+                        this.showToast(err.message, 'error');
+                    } finally {
+                        this.videoCreating = false;
+                    }
+                },
+
+                async loadVideos(page = 1) {
+                    if (!this.hasPermission('VIEW_VIDEO')) return;
+
+                    this.pagination.page = page;
+                    this.videoLoading = true;
+                    // Start NProgress top bar
+                    if (typeof NProgress !== 'undefined') {
+                        NProgress.configure({ showSpinner: false, speed: 400, minimum: 0.15 });
+                        NProgress.start();
+                    }
+                    try {
+                        let url = `/veo/videos?page=${this.pagination.page}&limit=${this.pagination.limit}`;
+                        if (this.selectedProjectId) url += `&project_id=${this.selectedProjectId}`;
+                        if (this.searchQuery && this.searchQuery.trim() !== '') {
+                            url += `&search=${encodeURIComponent(this.searchQuery.trim())}`;
+                        }
+                        if (this.filterStatus && this.filterStatus !== 'ALL') {
+                            url += `&status=${this.filterStatus}`;
+                        }
+                        if (this.filterMediaType && this.filterMediaType !== 'ALL') {
+                            url += `&media_type=${this.filterMediaType}`;
+                        }
+                        if (this.filterDate) {
+                            url += `&date_from=${this.filterDate}`;
+                        }
+
+                        const res = await this.apiCall(url);
+                        this.videos = res.items || [];
+                        // Clear selections khi chuyển trang/filter
+                        this.selectedTaskIds = [];
+
+                        if (res.total !== undefined) {
+                            this.pagination.total = res.total;
+                            this.pagination.hasMore = res.has_more;
+                        }
+                    } catch (err) {
+                        this.showToast(err.message || 'Không tải được danh sách Videos', 'error');
+                        console.error("loadVideos error:", err);
+                    } finally {
+                        this.videoLoading = false;
+                        if (typeof NProgress !== 'undefined') NProgress.done();
+                    }
+                },
+
+                get totalPages() {
+                    return Math.max(1, Math.ceil(this.pagination.total / this.pagination.limit));
+                },
+
+                get paginationPages() {
+                    const current = parseInt(this.pagination.page);
+                    const last = this.totalPages;
+                    const delta = 1;
+
+                    let left = current - delta;
+                    let right = current + delta;
+                    let range = [];
+                    let rangeWithDots = [];
+                    let l;
+
+                    for (let i = 1; i <= last; i++) {
+                        if (i === 1 || i === last || i >= left && i <= right) {
+                            range.push(i);
+                        }
+                    }
+
+                    for (let i of range) {
+                        if (l) {
+                            if (i - l === 2) {
+                                rangeWithDots.push(l + 1);
+                            } else if (i - l !== 1) {
+                                rangeWithDots.push('...');
+                            }
+                        }
+                        rangeWithDots.push(i);
+                        l = i;
+                    }
+
+                    return rangeWithDots;
+                },
+
+                get jobResultsCurrentPage() {
+                    return Math.floor(this.jobResultsSkip / this.jobResultsLimit) + 1;
+                },
+
+                get jobResultsTotalPages() {
+                    return Math.max(1, Math.ceil(this.jobResultsTotal / this.jobResultsLimit));
+                },
+
+                get jobResultsPaginationPages() {
+                    const current = parseInt(this.jobResultsCurrentPage);
+                    const last = this.jobResultsTotalPages;
+                    const delta = 1;
+                    let left = current - delta;
+                    let right = current + delta;
+                    let range = [];
+                    let rangeWithDots = [];
+                    let l;
+
+                    for (let i = 1; i <= last; i++) {
+                        if (i === 1 || i === last || (i >= left && i <= right)) {
+                            range.push(i);
+                        }
+                    }
+
+                    for (let i of range) {
+                        if (l) {
+                            if (i - l === 2) {
+                                rangeWithDots.push(l + 1);
+                            } else if (i - l !== 1) {
+                                rangeWithDots.push('...');
+                            }
+                        }
+                        rangeWithDots.push(i);
+                        l = i;
+                    }
+
+                    return rangeWithDots;
+                },
+
+                // ── Multi-Select & Batch Retry ──
+                toggleTaskSelect(taskId) {
+                    const idx = this.selectedTaskIds.indexOf(taskId);
+                    if (idx >= 0) {
+                        this.selectedTaskIds.splice(idx, 1);
+                    } else {
+                        this.selectedTaskIds.push(taskId);
+                    }
+                },
+
+                toggleSelectAll() {
+                    if (this.selectedTaskIds.length === this.videos.length) {
+                        this.selectedTaskIds = [];
+                    } else {
+                        this.selectedTaskIds = this.videos.map(v => v.id || v.task_id);
+                    }
+                },
+
+                async retrySelectedTasks() {
+                    if (this.selectedTaskIds.length === 0) return;
+                    if (!confirm(`Retry ${this.selectedTaskIds.length} task đã chọn?`)) return;
+                    this.batchRetrying = true;
+                    try {
+                        const res = await this.apiCall('/veo/retry-batch', 'POST', {
+                            task_ids: this.selectedTaskIds
+                        });
+                        this.showToast(`Đã retry ${res.retried} task (bỏ qua ${res.skipped})`, 'success');
+                        this.selectedTaskIds = [];
+                        await this.loadVideos();
+                    } catch (err) {
+                        this.showToast(err.message || 'Retry thất bại', 'error');
+                    } finally {
+                        this.batchRetrying = false;
+                    }
+                },
+
+                async deleteVideo(taskId) {
+                    if (!this.isAdmin) return;
+                    if (!confirm('Bạn có chắc chắn muốn xóa tác phẩm này vĩnh viễn không?')) return;
+                    try {
+                        await this.apiCall(`/veo/video/${taskId}`, 'DELETE');
+                        this.showToast('Đã xóa tác phẩm thành công', 'success');
+                        this.loadVideos();
+                    } catch (err) {
+                        this.showToast(err.message || 'Xóa tác phẩm thất bại', 'error');
+                    }
+                },
+
+                async deleteProject(projectId) {
+                    if (!this.isAdmin) return;
+                    if (!confirm('CHÚ Ý: Xoá Dự án sẽ xoá TOÀN BỘ Video bên trong. Bạn có chắc không?')) return;
+                    try {
+                        await this.apiCall(`/veo/project/${projectId}`, 'DELETE');
+                        this.showToast('Đã xóa dự án thành công', 'success');
+                        this.selectedProjectId = null;
+                        this.loadProjects();
+                        this.loadVideos();
+                    } catch (err) {
+                        this.showToast(err.message || 'Xóa dự án thất bại', 'error');
+                    }
+                },
+
+                async downloadProject(projectId) {
+                    this.showToast('Đang tạo file ZIP...', 'info');
+                    try {
+                        const resp = await fetch(`/api/veo/project/${projectId}/download`);
+                        if (!resp.ok) {
+                            const j = await resp.json().catch(() => ({}));
+                            throw new Error(j.error || 'Không thể tải xuống');
+                        }
+                        const blob = await resp.blob();
+                        const url = URL.createObjectURL(blob);
+                        const project = this.projects.find(p => p.id === projectId);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${(project?.name || projectId).replace(/[^a-zA-Z0-9_\-\u00C0-\u024F]/g, '_')}_videos.zip`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        this.showToast('Tải xuống thành công!', 'success');
+                    } catch (err) {
+                        this.showToast(err.message || 'Lỗi tải xuống', 'error');
+                    }
+                },
+
+                async retryProject(projectId) {
+                    if (!projectId || this.retryingProject) return;
+                    const proj = this.projects.find(p => p.id === projectId);
+                    const failedCount = (proj || {}).failed_count || 0;
+                    const pendingCount = (proj || {}).pending_count || 0;
+                    if (failedCount === 0 && pendingCount === 0) return;
+                    if (!confirm(`Retry ${failedCount} FAIL + ${pendingCount} Wait trong dự án "${proj?.name || ''}"?`)) return;
+                    this.retryingProject = true;
+                    // Safety auto-unlock: nếu server không phản hồi trong 35s → tự mở khóa
+                    const _safetyUnlock = setTimeout(() => { this.retryingProject = false; }, 35000);
+                    try {
+                        // Dùng fetch trực tiếp với AbortSignal (30s timeout)
+                        const controller = new AbortController();
+                        const _abortTimer = setTimeout(() => controller.abort(), 30000);
+                        const res = await fetch(`${API_URL}/veo/project/${projectId}/retry-failed`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('vietauto_apikey')}`,
+                                'Content-Type': 'application/json'
+                            },
+                            signal: controller.signal,
+                        });
+                        clearTimeout(_abortTimer);
+                        const d = await res.json();
+                        if (!d.success) throw new Error(d.error || 'Retry thất bại');
+                        this.showToast(`✓ Đã đưa ${d.data.retried} task vào hàng chờ thử lại!`, 'success');
+                        await this.loadProjects();
+                        await this.loadVideos();
+                    } catch (err) {
+                        if (err.name === 'AbortError') {
+                            this.showToast('Timeout: Server chậm (>30s). Nhấn F5 rồi thử lại.', 'error');
+                        } else {
+                            this.showToast(err.message || 'Retry thất bại', 'error');
+                        }
+                    } finally {
+                        clearTimeout(_safetyUnlock);
+                        this.retryingProject = false;
+                    }
+                },
+
+                async retryProjectAll(projectId) {
+                    if (!projectId || this.retryingProjectAll) return;
+                    const proj = this.projects.find(p => p.id === projectId);
+                    const totalCount = (proj || {}).total_videos || 0;
+                    if (totalCount === 0) return;
+                    if (!confirm(`Reset và retry TẤT CẢ ${totalCount} task trong dự án "${proj?.name || ''}" từ đầu?`)) return;
+                    this.retryingProjectAll = true;
+                    try {
+                        const res = await fetch(`${API_URL}/veo/project/${projectId}/retry-all`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('vietauto_apikey')}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        const d = await res.json();
+                        if (!d.success) throw new Error(d.error || 'Retry tất cả thất bại');
+                        this.showToast(`✓ Đã reset ${d.data.retried || 0} task về mới tinh và xếp hàng chạy lại!`, 'success');
+                        await this.loadProjects();
+                        await this.loadVideos();
+                    } catch (err) {
+                        this.showToast(err.message || 'Retry tất cả thất bại', 'error');
+                    } finally {
+                        this.retryingProjectAll = false;
+                    }
+                },
+
+                async retryProjectToday(projectId) {
+                    if (!projectId || this.retryingProjectToday) return;
+                    const proj = this.projects.find(p => p.id === projectId);
+                    const failedCount = (proj || {}).failed_count || 0;
+                    const pendingCount = (proj || {}).pending_count || 0;
+                    if (failedCount === 0 && pendingCount === 0) return;
+                    const todayStr = new Date().toLocaleDateString('vi-VN');
+                    if (!confirm(`Retry ${failedCount} FAIL + ${pendingCount} Wait (chỉ ngày ${todayStr}) trong dự án "${proj?.name || ''}"?`)) return;
+                    this.retryingProjectToday = true;
+                    const _safetyUnlock = setTimeout(() => { this.retryingProjectToday = false; }, 35000);
+                    try {
+                        const controller = new AbortController();
+                        const _abortTimer = setTimeout(() => controller.abort(), 30000);
+                        const res = await fetch(`${API_URL}/veo/project/${projectId}/retry-failed-today`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('vietauto_apikey')}`,
+                                'Content-Type': 'application/json'
+                            },
+                            signal: controller.signal,
+                        });
+                        clearTimeout(_abortTimer);
+                        const d = await res.json();
+                        if (!d.success) throw new Error(d.error || 'Retry thất bại');
+                        this.showToast(`✓ Đã đưa ${d.data.retried} task (hôm nay) vào hàng chờ thử lại!`, 'success');
+                        await this.loadProjects();
+                        await this.loadVideos();
+                    } catch (err) {
+                        if (err.name === 'AbortError') {
+                            this.showToast('Timeout: Server chậm (>30s). Nhấn F5 rồi thử lại.', 'error');
+                        } else {
+                            this.showToast(err.message || 'Retry thất bại', 'error');
+                        }
+                    } finally {
+                        clearTimeout(_safetyUnlock);
+                        this.retryingProjectToday = false;
+                    }
+                },
+
+                async pausePendingProject(projectId) {
+                    if (!projectId) return;
+                    if (!confirm('Tạm dừng tất cả task đang PENDING trong dự án này?')) return;
+                    try {
+                        this.showToast('Đang tạm dừng task pending...', 'info');
+                        const res = await fetch(`${API_URL}/veo/project/${projectId}/pause-pending`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('vietauto_apikey')}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        const d = await res.json();
+                        if (!d.success) throw new Error(d.error || 'Lỗi server');
+                        this.showToast(d.data.message || `Đã tạm dừng ${d.data.paused || 0} task`, 'success');
+                        await this.loadProjects();
+                        await this.loadVideos();
+                    } catch (err) {
+                        this.showToast(err.message || 'Tạm dừng thất bại', 'error');
+                    }
+                },
+
+                async resumePausedProject(projectId) {
+                    if (!projectId || this.resumingPaused) return;
+                    const proj = this.projects.find(p => p.id === projectId);
+                    const pausedCount = (proj || {}).paused_count || 0;
+                    if (pausedCount === 0) return;
+                    if (!confirm(`Resume ${pausedCount} task PAUSED trong dự án "${proj?.name || ''}"?`)) return;
+                    this.resumingPaused = true;
+                    const _safetyUnlock = setTimeout(() => { this.resumingPaused = false; }, 35000);
+                    try {
+                        const controller = new AbortController();
+                        const _abortTimer = setTimeout(() => controller.abort(), 30000);
+                        const res = await fetch(`${API_URL}/veo/project/${projectId}/resume-paused`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('vietauto_apikey')}`,
+                                'Content-Type': 'application/json'
+                            },
+                            signal: controller.signal,
+                        });
+                        clearTimeout(_abortTimer);
+                        const d = await res.json();
+                        if (!d.success) throw new Error(d.error || 'Resume thất bại');
+                        this.showToast(`✓ Đã resume ${d.data.resumed} task PAUSED!`, 'success');
+                        await this.loadProjects();
+                        await this.loadVideos();
+                    } catch (err) {
+                        if (err.name === 'AbortError') {
+                            this.showToast('Timeout: Server chậm (>30s). Nhấn F5 rồi thử lại.', 'error');
+                        } else {
+                            this.showToast(err.message || 'Resume thất bại', 'error');
+                        }
+                    } finally {
+                        clearTimeout(_safetyUnlock);
+                        this.resumingPaused = false;
+                    }
+                },
+
+                //    try {
+                //        this.showToast('Đang gửi yêu cầu thử lại...', 'info');
+                //        await this.apiCall(`/veo/retry/${taskId}`, 'POST');
+                //        this.showToast('Đã đưa Video vào hàng chờ (Queue)!', 'success');
+                //        this.loadVideos();
+                //    } catch (err) {
+                //        this.showToast(err.message || 'Thử lại thất bại', 'error');
+                //    }
+                // },
+
+                async submitRetry() {
+                    this.retryModal.loading = true;
+                    try {
+                        await this.apiCall(`/veo/retry/${this.retryModal.taskId}`, 'POST', {
+                            prompt: this.retryModal.form.prompt,
+                            model: this.retryModal.form.model,
+                            screen_ratio: this.retryModal.form.screen_ratio
+                        });
+                        this.showToast('Đã ghi nhận yêu cầu và xếp hàng!', 'success');
+                        this.closeRetryModal();
+                        this.loadVideos();
+                    } catch (err) {
+                        this.showToast(err.message || 'Thử lại thất bại', 'error');
+                    } finally {
+                        this.retryModal.loading = false;
+                    }
+                },
+
+                // ---- USERS SYSTEM ----
+                async loadUsers() {
+                    if (!this.isAdmin) return;
+                    this.loadingUsers = true;
+                    try { this.users = await this.apiCall('/admin/users'); }
+                    catch (err) { } finally { this.loadingUsers = false; }
+                },
+
+                openCreateModal() {
+                    this.modal.isEdit = false;
+                    this.modal.data = { id: '', username: '', password: '', role: 'TESTER', permissions: ['CREATE_VIDEO', 'VIEW_VIDEO'], is_active: true };
+                    this.modal.isOpen = true;
+                },
+
+                openEditModal(user) {
+                    this.modal.isEdit = true;
+                    this.modal.data = JSON.parse(JSON.stringify(user));
+                    this.modal.data.password = '';
+                    this.modal.isOpen = true;
+                },
+
+                closeModal() { this.modal.isOpen = false; },
+
+                openRetryModal(vid) {
+                    this.retryModal.taskId = vid.id || vid.task_id;
+                    this.retryModal.action_type = vid.action_type || 'TEXT_TO_VIDEO';
+                    this.retryModal.form.prompt = (vid.prompts && vid.prompts.length > 0) ? vid.prompts[0] : '';
+                    this.retryModal.form.model = vid.model || 'VEO_3.1_FAST';
+                    this.retryModal.form.screen_ratio = vid.screen_ratio || '16:9';
+                    this.retryModal.isOpen = true;
+                },
+                closeRetryModal() { this.retryModal.isOpen = false; },
+
+                async submitUserForm() {
+                    this.modal.loading = true;
+                    try {
+                        const payload = { role: this.modal.data.role, permissions: this.modal.data.permissions, is_active: this.modal.data.is_active };
+                        if (this.modal.data.password) payload.password = this.modal.data.password;
+
+                        if (this.modal.isEdit) {
+                            await this.apiCall(`/admin/users/${this.modal.data.id}`, 'PUT', payload);
+                            this.showToast('Cập nhật thành công!');
+                        } else {
+                            payload.username = this.modal.data.username;
+                            await this.apiCall('/admin/users', 'POST', payload);
+                            this.showToast('Tạo tài khoản thành công!');
+                        }
+                        this.closeModal(); this.loadUsers();
+                    } catch (err) { this.showToast(err.message, 'error'); }
+                    finally { this.modal.loading = false; }
+                },
+
+                async deleteUser(id) {
+                    if (!confirm('Xác nhận xóa tài khoản?')) return;
+                    try {
+                        await this.apiCall(`/admin/users/${id}`, 'DELETE');
+                        this.showToast('Đã xóa'); this.loadUsers();
+                    } catch (err) { this.showToast(err.message, 'error'); }
+                },
+
+                async openUserVeoAssignModal(user) {
+                    this.userVeoAssignModal.user = JSON.parse(JSON.stringify(user));
+                    this.userVeoAssignModal.selectedIds = [...(user.assigned_veo_account_ids || [])];
+                    this.userVeoAssignModal.isOpen = true;
+                    await this.loadVeoAccounts();
+                },
+
+                closeUserVeoAssignModal() {
+                    this.userVeoAssignModal.isOpen = false;
+                    this.userVeoAssignModal.loading = false;
+                },
+
+                toggleUserVeoAccount(account) {
+                    if (!account) return;
+                    const currentUserId = this.userVeoAssignModal.user?.id;
+                    if (account.assigned_to_user_id && account.assigned_to_user_id !== currentUserId) {
+                        this.showToast('Account này đang gán cho user khác', 'warning');
+                        return;
+                    }
+                    const accountId = account.id;
+                    const ids = this.userVeoAssignModal.selectedIds;
+                    const idx = ids.indexOf(accountId);
+                    if (idx >= 0) ids.splice(idx, 1);
+                    else ids.push(accountId);
+                },
+
+                async saveUserVeoAccounts() {
+                    const user = this.userVeoAssignModal.user;
+                    if (!user || !user.id) return;
+                    this.userVeoAssignModal.loading = true;
+                    try {
+                        const allowedIds = this.userVeoAssignModal.selectedIds.filter(id => {
+                            const account = (this.veoAccounts || []).find(acc => acc.id === id);
+                            return account && (!account.assigned_to_user_id || account.assigned_to_user_id === user.id);
+                        });
+                        await this.apiCall(`/admin/users/${user.id}/veo-accounts`, 'PUT', {
+                            account_ids: allowedIds
+                        });
+                        this.showToast('Đã lưu phân tài khoản Veo cho user', 'success');
+                        this.closeUserVeoAssignModal();
+                        await Promise.all([this.loadUsers(), this.loadVeoAccounts()]);
+                    } catch (err) {
+                        this.showToast(err.message || 'Lưu phân tài khoản thất bại', 'error');
+                    } finally {
+                        this.userVeoAssignModal.loading = false;
+                    }
+                },
+
+                // ---- CAPTCHA STATUS POLLING ----
+                _captchaPollingTimer: null,
+                _startCaptchaPolling() {
+                    if (this._captchaPollingTimer) return;
+                    const poll = async () => {
+                        // Không poll khi tab ẩn hoặc không ở tab veo_accounts
+                        if (document.hidden) return;
+                        if (this.activeMenu !== 'veo_accounts') return;
+                        try {
+                            const res = await fetch(`${API_URL}/captcha/status`, {
+                                headers: { 'Authorization': `Bearer ${localStorage.getItem('vietauto_apikey')}` }
+                            });
+                            if (res.ok) {
+                                const d = await res.json();
+                                const map = {};
+                                (d.connected_accounts || []).forEach(a => { map[a] = true; });
+                                this.captchaConnected = map;
+                            }
+                        } catch (e) { /* silent */ }
+                    };
+                    poll();
+                    this._captchaPollingTimer = setInterval(poll, 5000);
+                },
+
+                async launchChromeForAccount(acc) {
+                    const isConnected = this.captchaConnected[acc.name];
+                    const action = isConnected ? 'close-chrome' : 'launch-chrome';
+                    try {
+                        const res = await fetch(`${API_URL}/veo/accounts/${acc.id}/${action}`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${localStorage.getItem('vietauto_apikey')}` }
+                        });
+                        const data = await res.json();
+                        if (data.success === false && data.error) {
+                            this.showToast('Lỗi: ' + data.error, 'error');
+                        } else {
+                            this.showToast(isConnected ? 'Đã đóng Chrome' : 'Đã mở Chrome thành công!', 'success');
+                        }
+                    } catch (e) {
+                        this.showToast('Lỗi kết nối: ' + e.message, 'error');
+                    }
+                },
+
+                // ---- VEO ACCOUNTS SYSTEM ----
+                async loadVeoAccounts() {
+                    if (!this.isAdmin) return;
+                    this.loadingVeoAccounts = true;
+                    try {
+                        this.veoAccounts = await this.apiCall('/veo/accounts');
+                        // Tự động map trạng thái JWT offline từ API trả về siêu nhanh
+                        this.veoAccounts.forEach(acc => {
+                            if (acc.health) {
+                                this.cookieHealthMap[acc.id] = acc.health;
+                            }
+                        });
+                    }
+                    catch (err) { } finally { this.loadingVeoAccounts = false; }
+                },
+
+                async loadGlobalProxy() {
+                    try {
+                        const data = await this.apiCall('/admin/settings/global-proxy');
+                        this.globalProxy = data.global_proxy || '';
+                    } catch (err) { /* silent */ }
+                },
+
+                async saveGlobalProxy() {
+                    this.savingGlobalProxy = true;
+                    try {
+                        await this.apiCall('/admin/settings/global-proxy', 'PUT', { global_proxy: this.globalProxy });
+                        this.showToast('✅ Đã lưu Global Rotating Proxy thành công!', 'success');
+                    } catch (err) {
+                        this.showToast('Lỗi lưu proxy: ' + err.message, 'error');
+                    } finally {
+                        this.savingGlobalProxy = false;
+                    }
+                },
+
+                openVeoAccountCreateModal() {
+                    this.veoAccountModal.isEdit = false;
+                    this.veoAccountModal.data = { id: '', name: '', cookie: '', proxy: '', is_active: true };
+                    this.veoAccountModal.isOpen = true;
+                },
+
+                openVeoAccountEditModal(acc) {
+                    this.veoAccountModal.isEdit = true;
+                    this.veoAccountModal.data = JSON.parse(JSON.stringify(acc));
+                    this.veoAccountModal.isOpen = true;
+                },
+
+                closeVeoAccountModal() { this.veoAccountModal.isOpen = false; },
+
+                async submitVeoAccountForm() {
+                    this.veoAccountModal.loading = true;
+                    try {
+                        const payload = {
+                            name: this.veoAccountModal.data.name,
+                            cookie: this.veoAccountModal.data.cookie,
+                            proxy: this.veoAccountModal.data.proxy,
+                            static_proxy: this.veoAccountModal.data.static_proxy,
+                            is_active: this.veoAccountModal.data.is_active
+                        };
+                        if (this.veoAccountModal.isEdit) {
+                            await this.apiCall(`/veo/accounts/${this.veoAccountModal.data.id}`, 'PUT', payload);
+                            this.showToast('Cập nhật Account thành công!');
+                        } else {
+                            await this.apiCall('/veo/accounts', 'POST', payload);
+                            this.showToast('Thêm Account thành công!');
+                        }
+                        this.closeVeoAccountModal(); this.loadVeoAccounts();
+                    } catch (err) { this.showToast(err.message, 'error'); }
+                    finally { this.veoAccountModal.loading = false; }
+                },
+
+                async deleteVeoAccount(id) {
+                    if (!confirm('Xác nhận xóa tài khoản Veo này (bao gồm cả Cookie & Proxy)?')) return;
+                    this.deletingAccountId = id;
+                    try {
+                        await this.apiCall(`/veo/accounts/${id}`, 'DELETE');
+                        this.showToast('✅ Đã xóa Account!', 'success');
+                        this.loadVeoAccounts();
+                        this.loadAccountActivities();
+                    } catch (err) { this.showToast(err.message, 'error'); }
+                    finally { this.deletingAccountId = null; }
+                },
+
+                async toggleVeoAccount(acc) {
+                    this.togglingAccountId = acc.id;
+                    try {
+                        await this.apiCall(`/veo/accounts/${acc.id}`, 'PUT', { is_active: !acc.is_active });
+                        acc.is_active = !acc.is_active;
+                        this.showToast(acc.is_active ? `✅ Đã bật Account "${acc.name}"` : `⏸ Đã tắt Account "${acc.name}"`);
+                        await this.loadVeoAccounts();
+                        await this.loadAccountActivities();
+                    } catch (err) { this.showToast(err.message, 'error'); }
+                    finally { this.togglingAccountId = null; }
+                },
+
+                async unblockAccount(acc) {
+                    try {
+                        await this.apiCall(`/veo/accounts/${acc.id}/unblock`, 'POST');
+                        acc.project_blacklisted = false;
+                        this.showToast(`✅ Đã gỡ chặn Account "${acc.name}" — cho phép chạy lại bình thường`);
+                        this.loadVeoAccounts();
+                    } catch (err) { this.showToast(err.message, 'error'); }
+                },
+
+                async banAccountFromActivity(act) {
+                    const newState = !act.is_active;
+                    const action = newState ? 'BẬT' : 'BAN';
+                    if (!newState && !confirm(`Xác nhận ${action} tài khoản "${act.name}"?\nTài khoản sẽ không được dùng để chạy request nữa.`)) return;
+                    try {
+                        await this.apiCall(`/veo/accounts/${act.account_id}`, 'PUT', { is_active: newState });
+                        act.is_active = newState;
+                        this.showToast(newState ? `✅ Đã bật lại Account "${act.name}"` : `🚫 Đã BAN Account "${act.name}" — không chạy request nữa`);
+                        // Refresh data
+                        await Promise.all([this.loadAccountActivities(), this.loadVeoAccounts()]);
+                    } catch (err) { this.showToast(err.message, 'error'); }
+                },
+
+                async loadAccountActivities() {
+                    try {
+                        const data = await this.apiCall('/veo/accounts/activity');
+                        this.accountActivities = data.accounts || [];
+                        // Merge ban_reason + proxy_status vào veoAccounts cho bảng "Tài Khoản Có Vấn Đề"
+                        const reasonMap = {};
+                        const proxyStatusMap = {};
+                        (data.accounts || []).forEach(a => {
+                            if (a.ban_reason) reasonMap[a.name] = a.ban_reason;
+                            if (a.proxy_status) proxyStatusMap[a.name] = a.proxy_status;
+                        });
+                        this.veoAccounts.forEach(acc => {
+                            if (!acc.is_active && reasonMap[acc.name]) {
+                                acc.ban_reason = reasonMap[acc.name];
+                            }
+                            acc._proxy_status = proxyStatusMap[acc.name] || 'unknown';
+                        });
+                    } catch (e) { /* silent */ }
+                },
+
+                async loadCaptchaStats() {
+                    try {
+                        this.captchaStats = await this.apiCall('/veo/accounts/captcha-stats');
+                    } catch (e) { /* silent */ }
+                },
+
+                async loadAccountTokenMonitor() {
+                    if (!this.isAdmin) return;
+                    this.loadingAccountTokenMonitor = true;
+                    try {
+                        this.accountTokenRows = await this.apiCall('/veo/accounts');
+                        this.$nextTick(() => this.renderAccountTokenGrid());
+                    } catch (err) {
+                        this.showToast('Không tải được token monitor: ' + err.message, 'error');
+                    } finally {
+                        this.loadingAccountTokenMonitor = false;
+                    }
+                },
+
+                async resetAccountTokens() {
+                    if (!this.isAdmin || this.resettingAccountTokens) return;
+                    if (!confirm('Bạn chắc chắn muốn gỡ hết trạng thái token về Chưa call?')) return;
+                    this.resettingAccountTokens = true;
+                    try {
+                        const data = await this.apiCall('/admin/account-tokens/reset', 'POST');
+                        this.showToast(`Đã reset trạng thái token: ${data.modified || 0}/${data.matched || 0} account`, 'success');
+                        await this.loadAccountTokenMonitor();
+                    } catch (err) {
+                        this.showToast('Reset trạng thái token lỗi: ' + err.message, 'error');
+                    } finally {
+                        this.resettingAccountTokens = false;
+                    }
+                },
+
+                renderAccountTokenGrid() {
+                    const mount = document.getElementById('account-token-grid');
+                    if (!mount || typeof gridjs === 'undefined') return;
+                    const rows = (this.accountTokenRows || []).map((acc) => [
+                        gridjs.html(`<div class="text-left"><div class="font-black text-black text-sm leading-6">${this.escapeHtml(acc.name || '—')}</div><div class="text-[11px] text-slate-500 leading-5 tracking-wide">${acc.is_active ? 'Active' : 'Inactive'}</div></div>`),
+                        gridjs.html(`<span class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-black tracking-wide leading-5 ${acc.api_session?.issued_at ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}"><i class="fa-solid ${acc.api_session?.issued_at ? 'fa-circle-check' : 'fa-clock'}"></i>${acc.api_session?.issued_at ? 'Đã call token' : 'Chưa call'}</span>`),
+                        acc.api_session?.issued_to_username || '—',
+                        gridjs.html(`<div class="text-left"><div class="text-sm font-bold text-black">${this.escapeHtml(acc.api_session?.project_name || 'API Session')}</div><div class="text-[11px] text-slate-500 font-mono">${this.escapeHtml(acc.api_session?.project_id || '')}</div></div>`),
+                        this.formatTs(acc.api_session?.issued_at),
+                        acc.api_session?.token_sha256 ? `${acc.api_session.token_sha256.slice(0, 12)}…` : '—',
+                    ]);
+                    const config = {
+                        columns: [
+                            { name: 'Account', width: '300px' },
+                            { name: 'Trạng thái token', width: '180px' },
+                            { name: 'User gọi', width: '150px' },
+                            { name: 'Project', width: '260px' },
+                            { name: 'Lần cấp gần nhất', width: '170px' },
+                            { name: 'Token preview', width: '150px' },
+                        ],
+                        data: rows,
+                        sort: true,
+                        search: true,
+                        pagination: { enabled: true, limit: 20 },
+                        autoWidth: false,
+                        className: { table: 'text-left text-black', th: 'text-left', td: 'text-left' },
+                        language: { noRecordsFound: 'Không có dữ liệu phù hợp.', search: { placeholder: 'Tìm account, user, project...' } },
+                    };
+                    if (this.accountTokenGrid) {
+                        this.accountTokenGrid.updateConfig(config).forceRender();
+                    } else {
+                        mount.innerHTML = '';
+                        this.accountTokenGrid = new gridjs.Grid(config).render(mount);
+                    }
+                },
+
+                get accountTokenStats() {
+                    const rows = this.accountTokenRows || [];
+                    const used = rows.filter(a => a.api_session && a.api_session.issued_at).length;
+                    return {
+                        total: rows.length,
+                        used,
+                        unused: rows.length - used,
+                        active: rows.filter(a => a.is_active).length,
+                    };
+                },
+
+                get filteredAccountTokenRows() {
+                    const q = (this.accountTokenSearch || '').toLowerCase().trim();
+                    return (this.accountTokenRows || []).filter(acc => {
+                        const used = !!(acc.api_session && acc.api_session.issued_at);
+                        if (this.accountTokenFilter === 'USED' && !used) return false;
+                        if (this.accountTokenFilter === 'UNUSED' && used) return false;
+                        if (!q) return true;
+                        const haystack = [
+                            acc.name,
+                            acc.assigned_to_user_id,
+                            acc.assigned_username,
+                            acc.api_session?.username,
+                            acc.api_session?.project_id,
+                            acc.api_session?.project_name,
+                        ].filter(Boolean).join(' ').toLowerCase();
+                        return haystack.includes(q);
+                    });
+                },
+
+                formatTs(ts) {
+                    if (!ts) return '—';
+                    const n = Number(ts);
+                    const d = new Date(n > 1000000000000 ? n : n * 1000);
+                    if (Number.isNaN(d.getTime())) return '—';
+                    return d.toLocaleString('vi-VN');
+                },
+
+                async checkAllCookieHealth() {
+                    if (!this.isAdmin || this.checkingHealth) return;
+                    this.checkingHealth = true;
+                    try {
+                        const [cookieResults, proxyResp] = await Promise.all([
+                            this.apiCall('/veo/accounts/check-all', 'POST'),
+                            this.apiCall('/veo/accounts/check-proxy', 'POST').catch(() => ({ results: [] }))
+                        ]);
+
+                        // Cookie map
+                        const cookieMap = {};
+                        for (const r of cookieResults) { cookieMap[r.id] = r; }
+                        this.cookieHealthMap = cookieMap;
+
+                        // Proxy map
+                        const proxyMap = {};
+                        for (const r of (proxyResp.results || [])) { proxyMap[r.id] = r; }
+                        this.proxyHealthMap = proxyMap;
+
+                        // Toast summary
+                        const expired = cookieResults.filter(r => r.status === 'expired').length;
+                        const revoked = cookieResults.filter(r => r.status === 'revoked').length;
+                        const invalid = cookieResults.filter(r => r.status === 'invalid').length;
+                        const warning = cookieResults.filter(r => r.status === 'warning').length;
+                        const deadProxy = (proxyResp.results || []).filter(r => r.alive === false).length;
+                        const bad = expired + revoked + invalid;
+                        if (bad > 0) this.showToast(`⚠ ${bad} cookie không dùng được (${expired} hết hạn, ${revoked} mất session). Thay ngay!`, 'error');
+                        else if (deadProxy > 0) this.showToast(`⚠ ${deadProxy} proxy chết! Kiểm tra lại.`, 'error');
+                        else if (warning > 0) this.showToast(`⚠ ${warning} cookie sắp hết hạn (≤ 3 ngày). Kiểm tra sớm.`, 'error');
+                        else if (cookieResults.length > 0) this.showToast('✅ Tất cả cookie và proxy đang OK!', 'success');
+                    } catch (err) {
+                        this.showToast('Không thể kiểm tra: ' + err.message, 'error');
+                    } finally { this.checkingHealth = false; }
+                },
+
+                async checkAllCredits() {
+                    if (!this.isAdmin || this.checkingCredits) return;
+                    this.checkingCredits = true;
+                    try {
+                        const results = await this.apiCall('/veo/accounts/check-credits', 'POST');
+                        const cMap = {};
+                        for (const r of results) { cMap[r.id] = r; }
+                        this.creditsMap = cMap;
+                        this.showToast(`💰 Đã kiểm tra credits cho ${results.length} tài khoản`, 'success');
+                    } catch (err) {
+                        this.showToast('Không thể kiểm tra credits: ' + err.message, 'error');
+                    } finally { this.checkingCredits = false; }
+                },
+
+                // ---- COOKIE SYSTEM ----
+                openCookieModal() {
+                    this.cookieModal.data = '';
+                    this.cookieModal.isOpen = true;
+                },
+                closeCookieModal() {
+                    this.cookieModal.isOpen = false;
+                },
+                async submitCookieData() {
+                    if (!this.cookieModal.data.trim()) return;
+                    this.cookieModal.loading = true;
+                    try {
+                        await this.apiCall('/admin/settings/cookie', 'POST', { cookie: this.cookieModal.data });
+                        this.showToast('Cập nhật Cookie Veo thành công! Đã reset service.');
+                        this.closeCookieModal();
+                    } catch (err) {
+                        this.showToast(err.message, 'error');
+                    } finally {
+                        this.cookieModal.loading = false;
+                    }
+                }
+            }));
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,8 @@
+# Caddyfile — Caddy reverse proxy với SSL tự động (Let's Encrypt)
+# Đặt file này tại: C:\caddy\Caddyfile
+#
+# Thay api.yourdomain.com bằng domain thực tế của bạn
+
+api.yourdomain.com {
+    reverse_proxy localhost:8080
+}

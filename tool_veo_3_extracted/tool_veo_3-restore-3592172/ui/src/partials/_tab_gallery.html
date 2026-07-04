@@ -1,0 +1,404 @@
+<div x-show="activeMenu === 'gallery'"
+     x-data="galleryTab()"
+     x-init="refresh()"
+     class="flex-1 flex flex-col h-full bg-slate-50 min-h-0">
+
+    <!-- Header -->
+    <div class="h-16 px-6 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i class="fa-solid fa-images text-xl"></i>
+            </div>
+            <div>
+                <h2 class="text-lg font-bold text-slate-800">Kho ảnh cá nhân</h2>
+                <p class="text-xs text-slate-500">Upload / xem / tải / xoá ảnh — lưu ở folder <code class="px-1 bg-slate-100 rounded text-[11px]">image/</code></p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button @click="refresh()" :disabled="loading"
+                class="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                <i class="fa-solid" :class="loading ? 'fa-spinner fa-spin' : 'fa-rotate'"></i>
+                Làm mới
+            </button>
+            <label class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-all shadow-sm shadow-emerald-200 cursor-pointer">
+                <i class="fa-solid fa-upload"></i>
+                Tải ảnh lên
+                <input type="file" multiple accept="image/*" class="hidden"
+                       @change="upload($event.target.files); $event.target.value = ''">
+            </label>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto p-6 space-y-4">
+
+        <!-- Drag-drop zone — click mở picker, drag/drop upload trực tiếp -->
+        <label for="gallery-drop-input"
+             @dragenter.prevent.stop="dragOver = true"
+             @dragover.prevent.stop="dragOver = true"
+             @dragleave.prevent.stop="dragOver = false"
+             @drop.prevent.stop="dragOver = false; upload($event.dataTransfer.files)"
+             :class="dragOver ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 bg-white hover:border-emerald-400 hover:bg-slate-50'"
+             class="block border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer select-none">
+            <input id="gallery-drop-input" type="file" multiple accept="image/*" class="hidden"
+                   @change="upload($event.target.files); $event.target.value = ''">
+            <i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-400 mb-2 pointer-events-none"></i>
+            <p class="text-sm text-slate-600 pointer-events-none">
+                <strong class="text-emerald-700">Bấm vào đây</strong> để chọn ảnh, hoặc kéo & thả ảnh từ máy vào khung này.
+            </p>
+            <p class="text-xs text-slate-400 mt-1 pointer-events-none">
+                Hỗ trợ: PNG, JPG, JPEG, WEBP, GIF, BMP · Chọn nhiều file cùng lúc · Trùng tên sẽ tự thêm hậu tố
+            </p>
+            <template x-if="uploading">
+                <div class="mt-3 text-xs font-semibold text-emerald-700 pointer-events-none">
+                    <i class="fa-solid fa-spinner fa-spin mr-1"></i>
+                    Đang upload <span x-text="uploading"></span> ảnh...
+                </div>
+            </template>
+        </label>
+
+        <!-- Summary + filter + select-all -->
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div class="text-sm text-slate-900 font-medium">
+                Tổng: <strong x-text="items.length"></strong> ảnh
+                <template x-if="totalSize > 0">
+                    <span class="text-slate-500 font-normal">· <span x-text="formatSize(totalSize)"></span></span>
+                </template>
+            </div>
+            <div class="flex items-center gap-2">
+                <button @click="toggleSelectMode()"
+                        :class="selectMode ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'"
+                        class="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold rounded-lg transition">
+                    <i class="fa-solid" :class="selectMode ? 'fa-check-double' : 'fa-square-check'"></i>
+                    <span x-text="selectMode ? 'Thoát chọn' : 'Chọn nhiều'"></span>
+                </button>
+                <input type="text" x-model="filter" placeholder="Tìm theo tên..."
+                       class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 w-48 sm:w-64">
+            </div>
+        </div>
+
+        <!-- Bulk action bar (hiện khi chọn ít nhất 1 ảnh) -->
+        <div x-show="selectMode" x-transition.opacity
+             class="sticky top-0 z-10 bg-white border border-slate-300 rounded-xl shadow-md px-4 py-3 flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+                <button @click="selectAllVisible()"
+                        class="text-sm font-semibold text-slate-900 hover:text-indigo-600">
+                    <i class="fa-regular fa-square-check mr-1"></i>
+                    Chọn tất cả (<span x-text="filteredItems.length"></span>)
+                </button>
+                <span class="text-slate-300">|</span>
+                <button @click="clearSelection()"
+                        class="text-sm font-semibold text-slate-900 hover:text-slate-600">
+                    <i class="fa-regular fa-square mr-1"></i>
+                    Bỏ chọn
+                </button>
+                <span class="text-slate-300">|</span>
+                <span class="text-sm font-bold text-slate-900">
+                    Đã chọn: <span class="text-emerald-700" x-text="selected.size"></span>
+                </span>
+                <template x-if="selected.size > 0">
+                    <span class="text-sm text-slate-700" x-text="'· ' + formatSize(selectedSize)"></span>
+                </template>
+            </div>
+            <div class="flex items-center gap-2">
+                <button @click="downloadSelected()"
+                        :disabled="selected.size === 0 || bulkWorking"
+                        :class="selected.size === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'"
+                        class="flex items-center gap-2 px-4 py-1.5 text-sm font-semibold rounded-lg transition">
+                    <i class="fa-solid" :class="bulkWorking ? 'fa-spinner fa-spin' : 'fa-download'"></i>
+                    Tải đã chọn
+                </button>
+                <button @click="deleteSelected()"
+                        :disabled="selected.size === 0 || bulkWorking"
+                        :class="selected.size === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'"
+                        class="flex items-center gap-2 px-4 py-1.5 text-sm font-semibold rounded-lg transition">
+                    <i class="fa-solid" :class="bulkWorking ? 'fa-spinner fa-spin' : 'fa-trash'"></i>
+                    Xoá đã chọn
+                </button>
+            </div>
+        </div>
+
+        <!-- Empty state -->
+        <template x-if="!loading && filteredItems.length === 0">
+            <div class="py-16 text-center text-slate-400">
+                <i class="fa-solid fa-folder-open text-5xl mb-3"></i>
+                <p class="text-sm" x-text="items.length === 0 ? 'Chưa có ảnh nào. Upload ảnh đầu tiên!' : 'Không ảnh nào khớp tên.'"></p>
+            </div>
+        </template>
+
+        <!-- Grid -->
+        <div x-show="filteredItems.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            <template x-for="item in filteredItems" :key="item.name">
+                <div class="group relative bg-white rounded-xl border-2 overflow-hidden shadow-sm hover:shadow-md transition"
+                     :class="selected.has(item.name) ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-slate-200'">
+                    <!-- Checkbox overlay (hiện khi selectMode = true hoặc đã được chọn hoặc hover) -->
+                    <button @click.stop="toggleSelect(item)"
+                            :class="[
+                                selected.has(item.name) || selectMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                                selected.has(item.name) ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-400 border-slate-300 hover:border-emerald-500'
+                            ]"
+                            class="absolute top-2 left-2 z-10 w-6 h-6 border-2 rounded-md flex items-center justify-center transition">
+                        <i x-show="selected.has(item.name)" class="fa-solid fa-check text-xs"></i>
+                    </button>
+                    <!-- Thumbnail -->
+                    <div class="aspect-square bg-slate-100 overflow-hidden cursor-pointer"
+                         @click="selectMode ? toggleSelect(item) : preview(item)">
+                        <img :src="item.url" :alt="item.name" loading="lazy"
+                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                             :class="selected.has(item.name) ? 'opacity-80' : ''">
+                    </div>
+                    <!-- Info + actions -->
+                    <div class="p-2 space-y-2">
+                        <p class="text-xs font-bold text-slate-900 truncate" :title="item.name" x-text="item.name"></p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] text-slate-600 font-medium" x-text="formatSize(item.size)"></span>
+                            <div class="flex gap-1">
+                                <a :href="item.url + '?download=1'" download
+                                   @click.stop
+                                   title="Tải về"
+                                   class="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition">
+                                    <i class="fa-solid fa-download text-xs"></i>
+                                </a>
+                                <button @click.stop="remove(item)"
+                                        title="Xoá"
+                                        class="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-md transition">
+                                    <i class="fa-solid fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Preview modal -->
+    <div x-show="previewItem" x-cloak
+         @click.self="previewItem = null"
+         @keydown.escape.window="previewItem = null"
+         class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-6">
+        <div class="relative max-w-5xl max-h-full">
+            <button @click="previewItem = null"
+                    class="absolute -top-3 -right-3 w-10 h-10 bg-white rounded-full text-slate-700 hover:text-red-600 shadow-lg flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <template x-if="previewItem">
+                <div class="bg-white rounded-xl overflow-hidden shadow-2xl">
+                    <img :src="previewItem.url" :alt="previewItem.name"
+                         class="max-w-[90vw] max-h-[80vh] object-contain block">
+                    <div class="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-bold text-slate-800" x-text="previewItem.name"></p>
+                            <p class="text-xs text-slate-500" x-text="formatSize(previewItem.size)"></p>
+                        </div>
+                        <div class="flex gap-2">
+                            <a :href="previewItem.url + '?download=1'" download
+                               class="flex items-center gap-2 px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                                <i class="fa-solid fa-download"></i> Tải về
+                            </a>
+                            <button @click="remove(previewItem); previewItem = null"
+                                    class="flex items-center gap-2 px-3 py-1.5 text-sm bg-red-600 text-white rounded-md hover:bg-red-700">
+                                <i class="fa-solid fa-trash"></i> Xoá
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script>
+function galleryTab() {
+    return {
+        items: [],
+        loading: false,
+        uploading: 0,
+        dragOver: false,
+        filter: '',
+        previewItem: null,
+        // Multi-select state
+        selectMode: false,
+        selected: new Set(),
+        bulkWorking: false,
+
+        apiHeaders(json = false) {
+            const root = document.querySelector('[x-data="app()"]')?._x_dataStack?.[0];
+            if (root && typeof root.authHeaders === 'function') return root.authHeaders(json);
+            const token = localStorage.getItem('vietauto_apikey') || localStorage.getItem('api_key') || window._apiKey || '';
+            const headers = { 'Authorization': `Bearer ${token}`, 'X-API-Key': token };
+            if (json) headers['Content-Type'] = 'application/json';
+            return headers;
+        },
+
+        get filteredItems() {
+            if (!this.filter) return this.items;
+            const q = this.filter.toLowerCase();
+            return this.items.filter(i => i.name.toLowerCase().includes(q));
+        },
+        get totalSize() {
+            return this.items.reduce((s, i) => s + (i.size || 0), 0);
+        },
+        get selectedSize() {
+            return this.items
+                .filter(i => this.selected.has(i.name))
+                .reduce((s, i) => s + (i.size || 0), 0);
+        },
+
+        toggleSelectMode() {
+            this.selectMode = !this.selectMode;
+            if (!this.selectMode) this.selected = new Set();
+        },
+        toggleSelect(item) {
+            if (!this.selectMode) this.selectMode = true;
+            // Alpine cần re-assign Set mới để trigger reactivity
+            const n = new Set(this.selected);
+            if (n.has(item.name)) n.delete(item.name); else n.add(item.name);
+            this.selected = n;
+        },
+        selectAllVisible() {
+            const n = new Set(this.selected);
+            this.filteredItems.forEach(i => n.add(i.name));
+            this.selected = n;
+        },
+        clearSelection() {
+            this.selected = new Set();
+        },
+
+        async downloadSelected() {
+            if (this.selected.size === 0) return;
+            this.bulkWorking = true;
+            try {
+                const names = Array.from(this.selected);
+                // Kích hoạt download tuần tự qua <a download> — trình duyệt sẽ tải từng file
+                for (let i = 0; i < names.length; i++) {
+                    const name = names[i];
+                    const a = document.createElement('a');
+                    a.href = '/api/gallery/file/' + encodeURIComponent(name) + '?download=1';
+                    a.download = name;
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    // Delay nhỏ giữa các file để browser không merge
+                    await new Promise(r => setTimeout(r, 250));
+                }
+                this._toast(`Đã kích hoạt tải ${names.length} ảnh`, 'success');
+            } catch (e) {
+                this._toast('Lỗi tải: ' + e.message, 'error');
+            } finally {
+                this.bulkWorking = false;
+            }
+        },
+        async deleteSelected() {
+            if (this.selected.size === 0) return;
+            const names = Array.from(this.selected);
+            if (!confirm(`Xoá ${names.length} ảnh đã chọn?`)) return;
+            this.bulkWorking = true;
+            let ok = 0, fail = 0;
+            try {
+                for (const name of names) {
+                    try {
+                        const r = await fetch('/api/gallery/' + encodeURIComponent(name), { method: 'DELETE', headers: this.apiHeaders(false) });
+                        const j = await r.json();
+                        if (j.ok) ok++; else fail++;
+                    } catch {
+                        fail++;
+                    }
+                }
+                // Xoá khỏi items local
+                this.items = this.items.filter(i => !this.selected.has(i.name));
+                this.selected = new Set();
+                this._toast(`Xoá: ${ok} OK, ${fail} lỗi`, fail > 0 ? 'error' : 'success');
+            } finally {
+                this.bulkWorking = false;
+            }
+        },
+
+        async refresh() {
+            this.loading = true;
+            try {
+                const r = await fetch('/api/gallery/list', { headers: this.apiHeaders(false) });
+                const j = await r.json();
+                if (j.ok) {
+                    // Sort newest first
+                    this.items = (j.items || []).sort((a, b) => (b.modified_at || 0) - (a.modified_at || 0));
+                } else {
+                    this._toast('Không tải được danh sách: ' + (j.error || 'unknown'), 'error');
+                }
+            } catch (e) {
+                this._toast('Lỗi mạng: ' + e.message, 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async upload(fileList) {
+            if (!fileList || fileList.length === 0) return;
+            const files = Array.from(fileList);
+            this.uploading = files.length;
+            try {
+                const fd = new FormData();
+                files.forEach(f => fd.append('files[]', f));
+                const r = await fetch('/api/gallery/upload', { method: 'POST', headers: this.apiHeaders(false), body: fd });
+                const j = await r.json();
+                if (j.ok) {
+                    const ok = j.uploaded?.length || 0;
+                    const fail = j.failed?.length || 0;
+                    let msg = `Upload xong: ${ok} ảnh`;
+                    if (fail > 0) msg += `, ${fail} lỗi`;
+                    this._toast(msg, fail > 0 ? 'error' : 'success');
+                    await this.refresh();
+                } else {
+                    this._toast('Upload lỗi: ' + (j.error || 'unknown'), 'error');
+                }
+            } catch (e) {
+                this._toast('Upload lỗi: ' + e.message, 'error');
+            } finally {
+                this.uploading = 0;
+            }
+        },
+
+        async remove(item) {
+            if (!item || !item.name) return;
+            if (!confirm(`Xoá "${item.name}"?`)) return;
+            try {
+                const r = await fetch('/api/gallery/' + encodeURIComponent(item.name), { method: 'DELETE', headers: this.apiHeaders(false) });
+                const j = await r.json();
+                if (j.ok) {
+                    this.items = this.items.filter(i => i.name !== item.name);
+                    this._toast('Đã xoá: ' + item.name, 'success');
+                } else {
+                    this._toast('Xoá lỗi: ' + (j.error || 'unknown'), 'error');
+                }
+            } catch (e) {
+                this._toast('Xoá lỗi: ' + e.message, 'error');
+            }
+        },
+
+        preview(item) {
+            this.previewItem = item;
+        },
+
+        formatSize(bytes) {
+            if (!bytes) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let i = 0, v = bytes;
+            while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+            return v.toFixed(v < 10 && i > 0 ? 1 : 0) + ' ' + units[i];
+        },
+
+        _toast(msg, type) {
+            // Dùng lại toast của app parent nếu có
+            try {
+                const root = document.querySelector('[x-data="app()"]')?._x_dataStack?.[0];
+                if (root && typeof root.showToast === 'function') {
+                    root.showToast(msg, type);
+                    return;
+                }
+            } catch {}
+            alert(msg);
+        },
+    };
+}
+</script>

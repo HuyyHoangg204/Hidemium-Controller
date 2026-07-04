@@ -1,0 +1,117 @@
+<style>
+    .job-result-prompt-cell {
+        display: block;
+    }
+</style>
+
+<section x-show="activeMenu === 'job_results'" x-cloak class="pt-12 text-black">
+    <div class="mx-auto w-full max-w-[1560px] space-y-6 px-3 sm:px-5">
+        <div class="bg-white border border-slate-200 rounded-2xl shadow-[0_10px_35px_rgba(15,23,42,0.06)] overflow-hidden">
+            <div class="px-5 py-4 bg-slate-50 border-b border-slate-200">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
+                    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-[0.16em]">Tổng record</span>
+                        <span class="ml-3 text-xl font-black text-black leading-none" x-text="jobResultsTotal"></span>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-[0.16em]">Đang hiển thị</span>
+                        <span class="ml-3 text-xl font-black text-indigo-700 leading-none" x-text="jobResults.length"></span>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-[0.16em]">Completed</span>
+                        <span class="ml-3 text-xl font-black text-emerald-700 leading-none" x-text="jobResults.filter(r => r.status === 'completed').length"></span>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-[0.16em]">Failed</span>
+                        <span class="ml-3 text-xl font-black text-rose-700 leading-none" x-text="jobResults.filter(r => r.status && r.status !== 'completed').length"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-5 py-3 bg-white text-left">
+                <div class="flex flex-nowrap items-end gap-3 overflow-x-auto">
+                    <label class="shrink-0 w-[560px] space-y-1">
+                        <span class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Tìm kiếm</span>
+                        <input id="job-results-search" type="text" x-model="jobResultsSearch" @keydown.enter="loadUserJobResults()"
+                            placeholder="Name user, prompt..."
+                            class="w-full h-10 bg-white border border-slate-300 rounded-lg px-3 text-sm text-black leading-5 outline-none focus:ring-2 focus:ring-indigo-400">
+                    </label>
+                    <label class="shrink-0 w-[180px] space-y-1">
+                        <span class="block text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Status</span>
+                        <select id="job-results-status" x-model="jobResultsStatus" @change="loadUserJobResults()"
+                            class="w-full h-10 bg-white border border-slate-300 rounded-lg px-3 text-sm text-black leading-5 outline-none focus:ring-2 focus:ring-indigo-400">
+                            <option value="">Tất cả</option>
+                            <option value="completed">completed</option>
+                            <option value="failed">failed</option>
+                            <option value="error">error</option>
+                        </select>
+                    </label>
+                    <button @click="loadUserJobResults()"
+                        class="shrink-0 h-10 w-[96px] rounded-lg bg-slate-900 text-white text-sm font-black hover:bg-black transition-colors">
+                        Lọc
+                    </button>
+                    <button id="refresh-job-results" @click="loadUserJobResults()"
+                        class="shrink-0 h-10 w-[112px] inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 transition-colors shadow-sm">
+                        <i class="fa-solid fa-rotate"></i>
+                        Tải lại
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-2xl shadow-[0_10px_35px_rgba(15,23,42,0.06)] overflow-hidden">
+            <div x-show="loadingJobResults" class="px-8 py-10 text-sm text-slate-600 text-left">
+                <i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Đang tải danh sách...
+            </div>
+
+            <div x-show="!loadingJobResults" class="overflow-x-auto job-results-grid">
+                <div id="job-results-grid" class="min-w-[1180px]"></div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4 text-black bg-white">
+                <div class="text-[13px] font-medium text-slate-500 flex items-center gap-2">
+                    <div x-show="loadingJobResults">
+                        <i class="fa-solid fa-circle-notch fa-spin text-indigo-500"></i>
+                    </div>
+                    <span>
+                        Trang <span class="font-bold text-slate-900" x-text="jobResultsCurrentPage"></span>
+                        / <span class="font-bold text-slate-900" x-text="jobResultsTotalPages"></span>
+                    </span>
+                </div>
+
+                <div class="flex items-center gap-1 bg-slate-50/80 p-1 rounded-lg border border-slate-200/60 shadow-inner">
+                    <button type="button" @click="loadUserJobResults(Math.max(0, jobResultsSkip - jobResultsLimit))"
+                        :disabled="jobResultsCurrentPage <= 1 || loadingJobResults"
+                        class="px-4 py-1.5 text-[13px] font-semibold rounded-md transition-all flex items-center gap-1.5 disabled:opacity-40"
+                        :class="jobResultsCurrentPage <= 1 ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 hover:bg-white hover:text-indigo-600 hover:shadow-sm'">
+                        <i class="fa-solid fa-chevron-left text-[10px]"></i> Trước
+                    </button>
+
+                    <div class="flex items-center px-1 space-x-0.5">
+                        <template x-for="(p, idx) in jobResultsPaginationPages" :key="idx">
+                            <div class="inline-block">
+                                <template x-if="p === '...'">
+                                    <span class="min-w-[32px] text-center text-slate-400 text-xs font-bold leading-8 tracking-widest pl-1">...</span>
+                                </template>
+                                <template x-if="p !== '...'">
+                                    <button type="button" @click="loadUserJobResults((p - 1) * jobResultsLimit)" :disabled="loadingJobResults"
+                                        class="min-w-[32px] h-8 flex items-center justify-center text-[13px] font-bold rounded-md transition-all px-1"
+                                        :class="jobResultsCurrentPage === p ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30' : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm'"
+                                        x-text="p">
+                                    </button>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <button type="button" @click="loadUserJobResults(jobResultsSkip + jobResultsLimit)"
+                        :disabled="jobResultsCurrentPage >= jobResultsTotalPages || loadingJobResults"
+                        class="px-4 py-1.5 text-[13px] font-semibold rounded-md transition-all flex items-center gap-1.5 disabled:opacity-40"
+                        :class="jobResultsCurrentPage >= jobResultsTotalPages ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 hover:bg-white hover:text-indigo-600 hover:shadow-sm'">
+                        Tiếp <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

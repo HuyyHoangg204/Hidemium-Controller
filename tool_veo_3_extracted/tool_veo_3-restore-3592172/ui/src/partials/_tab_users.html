@@ -1,0 +1,118 @@
+                <!-- TAB: USERS MANAGEMENT -->
+                <div x-cloak x-show="activeMenu === 'users' && isAdmin" class="space-y-6 max-w-6xl mx-auto">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-xl font-bold">Danh sách Tài khoản</h2>
+                        <button @click="openCreateModal"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-lg font-medium transition-colors flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-plus"></i> Thêm Tài khoản
+                        </button>
+                    </div>
+
+                    <div class="glass-panel rounded-xl overflow-hidden border border-slate-200 shadow-xl">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm item-center text-left">
+                                <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-6 py-4">Tên User</th>
+                                        <th class="px-6 py-4">API KEY</th>
+                                        <th class="px-6 py-4">Veo accounts</th>
+                                        <th class="px-6 py-4">Quyền hạn (Role)</th>
+                                        <th class="px-6 py-4">Chức năng (Permissions)</th>
+                                        <th class="px-6 py-4">Trạng thái</th>
+                                        <th class="px-6 py-4 text-right">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-if="loadingUsers">
+                                        <tr>
+                                            <td colspan="7" class="px-6 py-8 text-center text-slate-500"><i
+                                                    class="fa-solid fa-spinner fa-spin mr-2"></i>Đang tải dữ
+                                                liệu...
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template x-if="!loadingUsers && users.length === 0">
+                                        <tr>
+                                            <td colspan="6" class="px-6 py-12 text-center text-slate-500">
+                                                <div class="flex flex-col items-center justify-center">
+                                                    <i class="fa-solid fa-users-slash text-3xl text-slate-300 mb-3"></i>
+                                                    <span class="font-medium">Chưa có dữ liệu</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template x-for="user in users" :key="user.id">
+                                        <tr class="border-b border-slate-200 hover:bg-blue-50/50 transition-colors">
+                                            <td class="px-6 py-4 font-bold text-slate-900" x-text="user.username"></td>
+                                            <td class="px-4 py-4">
+                                                <div class="flex items-center gap-1.5 max-w-[220px]">
+                                                    <code class="text-xs font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded truncate flex-1"
+                                                        x-text="user.api_key || '—'" :title="user.api_key"></code>
+                                                    <button x-show="user.api_key"
+                                                        @click="navigator.clipboard.writeText(user.api_key); showToast('Đã copy API key!', 'success')"
+                                                        class="text-slate-400 hover:text-indigo-600 transition-colors shrink-0" title="Copy API key">
+                                                        <i class="fa-solid fa-copy text-xs"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="flex flex-col gap-2 min-w-[180px]">
+                                                    <div class="flex flex-wrap gap-1 max-w-[260px]">
+                                                        <template x-for="name in (user.assigned_veo_account_names || []).slice(0, 3)" :key="name">
+                                                            <span class="text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full" x-text="name"></span>
+                                                        </template>
+                                                        <span x-show="(user.assigned_veo_account_names || []).length > 3"
+                                                            class="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full"
+                                                            x-text="'+' + ((user.assigned_veo_account_names || []).length - 3)"></span>
+                                                        <span x-show="!(user.assigned_veo_account_names || []).length"
+                                                            class="text-xs text-rose-500 font-semibold">Chưa gán</span>
+                                                    </div>
+                                                    <button @click="openUserVeoAssignModal(user)"
+                                                        class="w-fit text-[11px] font-bold px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm hover:shadow-indigo-500/30 hover:-translate-y-0.5 transition-all">
+                                                        <i class="fa-solid fa-user-gear mr-1"></i> Gán account
+                                                    </button>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <span class="px-2 py-0.5 text-xs font-bold rounded" :class="{
+                                                            'bg-purple-500/20 text-purple-400': user.role === 'ADMIN',
+                                                            'bg-indigo-100 text-indigo-600': user.role === 'DEV',
+                                                            'bg-amber-100 text-amber-600': user.role === 'TESTER'
+                                                        }" x-text="user.role"></span>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="flex flex-wrap gap-1">
+                                                    <template x-for="perm in user.permissions" :key="perm">
+                                                        <span
+                                                            class="text-[10px] uppercase bg-slate-100 hover:bg-slate-200 text-slate-700 text-slate-600 px-1.5 py-0.5 rounded"
+                                                            x-text="perm.split('_')[0]"></span>
+                                                    </template>
+                                                    <span x-show="user.permissions.length === 0"
+                                                        class="text-xs text-slate-500 italic">Không
+                                                        có</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="w-2 h-2 rounded-full shadow-lg"
+                                                        :class="user.is_active ? 'bg-emerald-400 shadow-emerald-400/50' : 'bg-red-400 shadow-red-400/50'">
+                                                    </div>
+                                                    <span class="text-xs font-medium"
+                                                        x-text="user.is_active ? 'Hoạt động' : 'Khoá'"></span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 text-right space-x-2">
+                                                <button @click="openEditModal(user)"
+                                                    class="text-slate-500 hover:text-slate-900 transition-colors"><i
+                                                        class="fa-solid fa-pen-to-square"></i></button>
+                                                <button @click="deleteUser(user.id)" x-show="user.id !== currentUser.id"
+                                                    class="text-slate-500 hover:text-red-600 transition-colors"><i
+                                                        class="fa-solid fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>

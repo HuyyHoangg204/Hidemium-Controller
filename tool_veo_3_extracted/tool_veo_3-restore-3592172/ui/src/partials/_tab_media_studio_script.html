@@ -1,0 +1,161 @@
+<script>
+function mediaStudioTab() {
+    return {
+        activeCase: 'image',
+        inputMode: 'files',
+        submitting: false,
+        manualTaskId: '',
+        files: [],
+        tasks: JSON.parse(localStorage.getItem('media_studio_tasks') || '[]'),
+        form: {
+            prompt: 'A cinematic cat in rain',
+            model: 'NARWHAL',
+            screen_ratio: '16:9',
+            pathsText: '',
+            base64Text: ''
+        },
+        cases: [
+            { id: 'image', name: 'Tạo ảnh thường', endpoint: '/api/veo/images', method: 'POST', bodyType: 'json', needsImages: false, icon: 'fa-solid fa-image' },
+            { id: 'image4k', name: 'Tạo ảnh 4K', endpoint: '/api/veo/images/4k', method: 'POST', bodyType: 'json', needsImages: false, icon: 'fa-solid fa-gem' },
+            { id: 'startVideo', name: 'Video từ ảnh đầu', endpoint: '/api/veo/videos/from-start-image', method: 'POST', bodyType: 'multipart', needsImages: true, minFiles: 1, maxFiles: 1, icon: 'fa-solid fa-play' },
+            { id: 'startEndVideo', name: 'Video từ ảnh đầu/cuối', endpoint: '/api/veo/videos/from-start-end-images', method: 'POST', bodyType: 'multipart', needsImages: true, minFiles: 2, maxFiles: 2, icon: 'fa-solid fa-film' },
+            { id: 'referenceVideo', name: 'Video từ ảnh reference', endpoint: '/api/veo/videos/from-reference-image', method: 'POST', bodyType: 'multipart', needsImages: true, minFiles: 1, maxFiles: 1, icon: 'fa-solid fa-user-astronaut' },
+            { id: 'imagesFromImages', name: 'Ảnh từ nhiều ảnh', endpoint: '/api/veo/images/from-images', method: 'POST', bodyType: 'multipart', needsImages: true, minFiles: 1, maxFiles: 20, icon: 'fa-solid fa-layer-group' },
+            { id: 'imagesFromImages4k', name: 'Ảnh từ nhiều ảnh 4K', endpoint: '/api/veo/images/from-images/4k', method: 'POST', bodyType: 'multipart', needsImages: true, minFiles: 1, maxFiles: 20, icon: 'fa-solid fa-images' }
+        ],
+        get currentCase() {
+            return this.cases.find(c => c.id === this.activeCase) || this.cases[0];
+        },
+        get fileHint() {
+            const c = this.currentCase;
+            if (!c.needsImages) return '';
+            if (c.minFiles === c.maxFiles) return `Cần đúng ${c.minFiles} ảnh`;
+            return `Cần ${c.minFiles}-${c.maxFiles} ảnh`;
+        },
+        selectCase(id) {
+            this.activeCase = id;
+            this.files = [];
+            const c = this.currentCase;
+            this.form.model = c.needsImages && c.id.includes('Video') ? 'VEO_3.1_FAST' : 'NARWHAL';
+        },
+        setFiles(fileList) {
+            const c = this.currentCase;
+            const arr = Array.from(fileList || []);
+            this.files = arr.slice(0, c.maxFiles || arr.length);
+            if (arr.length > this.files.length) this.toast(`Chỉ lấy ${this.files.length} ảnh đầu`, 'error');
+        },
+        apiHeaders(json = false) {
+            const token = localStorage.getItem('vietauto_apikey') || '';
+            const headers = { 'X-API-Key': token, 'Authorization': 'Bearer ' + token };
+            if (json) headers['Content-Type'] = 'application/json';
+            return headers;
+        },
+        basePayload() {
+            return {
+                prompt: this.form.prompt,
+                model: this.form.model,
+                screen_ratio: this.form.screen_ratio
+            };
+        },
+        validateInputs() {
+            const c = this.currentCase;
+            if (!this.form.prompt.trim()) throw new Error('Thiếu prompt');
+            if (!c.needsImages) return;
+            if (this.inputMode === 'files') {
+                if (this.files.length < (c.minFiles || 1)) throw new Error(`Cần tối thiểu ${c.minFiles || 1} ảnh`);
+            } else if (this.inputMode === 'paths') {
+                const paths = this.parsePaths();
+                if (paths.length < (c.minFiles || 1)) throw new Error(`Cần tối thiểu ${c.minFiles || 1} path ảnh`);
+            } else {
+                const imgs = this.parseBase64Images();
+                if (imgs.length < (c.minFiles || 1)) throw new Error(`Cần tối thiểu ${c.minFiles || 1} ảnh base64`);
+            }
+        },
+        parsePaths() {
+            return this.form.pathsText.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        },
+        parseBase64Images() {
+            if (!this.form.base64Text.trim()) return [];
+            const data = JSON.parse(this.form.base64Text);
+            return Array.isArray(data) ? data : [data];
+        },
+        async submit() {
+            this.submitting = true;
+            try {
+                this.validateInputs();
+                const c = this.currentCase;
+                let res;
+                if (!c.needsImages || this.inputMode === 'paths' || this.inputMode === 'base64') {
+                    const payload = this.basePayload();
+                    if (c.needsImages && this.inputMode === 'paths') payload.image_paths = this.parsePaths();
+                    if (c.needsImages && this.inputMode === 'base64') payload.images = this.parseBase64Images();
+                    res = await fetch(c.endpoint, { method: c.method, headers: this.apiHeaders(true), body: JSON.stringify(payload) });
+                } else {
+                    const fd = new FormData();
+                    fd.append('prompt', this.form.prompt);
+                    fd.append('model', this.form.model);
+                    fd.append('screen_ratio', this.form.screen_ratio);
+                    if (c.id === 'startVideo' || c.id === 'referenceVideo') {
+                        fd.append('file', this.files[0]);
+                    } else {
+                        this.files.forEach(f => fd.append('files', f));
+                    }
+                    res = await fetch(c.endpoint, { method: c.method, headers: this.apiHeaders(false), body: fd });
+                }
+                const json = await res.json();
+                if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+                const task = { ...(json.data || {}), caseName: c.name, createdAt: Date.now() };
+                if (!task.id) task.id = json.task_id || json.id || `local-${Date.now()}`;
+                this.tasks.unshift(task);
+                this.persistTasks();
+                this.toast('Đã tạo task: ' + task.id, 'success');
+                if (task.id) setTimeout(() => this.pollTask(task), 1200);
+            } catch (e) {
+                this.toast(e.message, 'error');
+            } finally {
+                this.submitting = false;
+            }
+        },
+        async pollManual() {
+            if (!this.manualTaskId.trim()) return;
+            const task = { id: this.manualTaskId.trim(), status: 'CHECKING', caseName: 'Manual' };
+            this.tasks.unshift(task);
+            this.persistTasks();
+            await this.pollTask(task);
+            this.manualTaskId = '';
+        },
+        async pollTask(task) {
+            try {
+                task.status = task.status === 'COMPLETED' ? task.status : 'CHECKING';
+                const res = await fetch('/api/veo/tasks/' + encodeURIComponent(task.id), { headers: this.apiHeaders(false) });
+                const json = await res.json();
+                if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+                Object.assign(task, json.data || {});
+                this.persistTasks();
+            } catch (e) {
+                task.status = 'FAILED';
+                task.error = e.message;
+                this.persistTasks();
+            }
+        },
+        persistTasks() {
+            this.tasks = [...this.tasks].slice(0, 30);
+            localStorage.setItem('media_studio_tasks', JSON.stringify(this.tasks));
+        },
+        statusClass(status) {
+            const s = (status || '').toUpperCase();
+            if (s === 'COMPLETED') return 'bg-emerald-50 text-emerald-700';
+            if (s === 'FAILED' || s === 'ERROR') return 'bg-red-50 text-red-700';
+            if (s === 'CHECKING') return 'bg-cyan-50 text-cyan-700';
+            return 'bg-amber-50 text-amber-700';
+        },
+        toast(message, type = 'success') {
+            window.dispatchEvent(new CustomEvent('media-studio-toast', { detail: { message, type } }));
+            if (window.Alpine) {
+                const root = document.querySelector('[x-data="app()"]');
+                if (root && root._x_dataStack?.[0]?.showToast) root._x_dataStack[0].showToast(message, type);
+            }
+        }
+    }
+}
+</script>

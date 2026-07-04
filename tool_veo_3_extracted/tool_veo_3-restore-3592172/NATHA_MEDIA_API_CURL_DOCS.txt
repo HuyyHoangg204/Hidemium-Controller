@@ -1,0 +1,129 @@
+NATHA MEDIA API DOCS - CURL QUICK GUIDE
+Base URL: https://nathamedia.net
+Auth: thay YOUR_API_KEY bằng API key thật. Có thể truyền token query: ?token=YOUR_API_KEY
+Header khuyên dùng: -H "X-API-Key: YOUR_API_KEY"
+Response chung: {"success":true,"data":...}. Tạo task thường trả 202, chạy nền.
+Lưu ý media mới: tạo job dùng proxy.txt trên server; token/proxy map theo từng dòng; 1 token = 1 Chrome = 10 luồng.
+
+1) HEALTH CHECK
+curl -X GET "https://nathamedia.net/api/health"
+
+2) TẠO ẢNH 1K TỪ PROMPT
+curl -X POST "https://nathamedia.net/api/veo/images" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"prompt":"A cinematic Vietnamese cyberpunk city at sunset","model":"GEM_PIX_2","screen_ratio":"16:9","count":1,"project_name":"API Image 1K"}'
+
+3) TẠO ẢNH 4K TỪ PROMPT
+curl -X POST "https://nathamedia.net/api/veo/images/4k" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"prompt":"Ultra realistic product photo, luxury lighting","model":"GEM_PIX_2","screen_ratio":"1:1","count":1,"project_name":"API Image 4K"}'
+
+4) TẠO NHIỀU ẢNH: MỖI DÒNG PROMPT = TASK, COUNT = SỐ ẢNH/PROMPT
+curl -X POST "https://nathamedia.net/api/veo/images" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"prompt":"Prompt 1: a dragon over Ha Long Bay\nPrompt 2: a robot in Saigon rain","model":"GEM_PIX_2","screen_ratio":"16:9","count":2,"project_name":"Batch Images"}'
+
+5) TẠO ẢNH TỪ ẢNH LOCAL PATH TRÊN SERVER
+curl -X POST "https://nathamedia.net/api/veo/images/from-images" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"prompt":"Turn this reference into a premium ad poster","image_paths":["D:/tool_veo_3/input/ref.jpg"],"model":"GEM_PIX_2","screen_ratio":"16:9","count":1,"project_name":"Image From Ref"}'
+
+6) TẠO ẢNH 4K TỪ ẢNH LOCAL PATH
+curl -X POST "https://nathamedia.net/api/veo/images/from-images/4k" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"prompt":"Upscale and restyle as cinematic poster","image_paths":["D:/tool_veo_3/input/ref.jpg"],"model":"GEM_PIX_2","screen_ratio":"16:9","count":1}'
+
+7) TẠO ẢNH TỪ ẢNH UPLOAD MULTIPART
+curl -X POST "https://nathamedia.net/api/veo/images/from-images" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -F "prompt=Create a luxury fashion campaign image" \
+  -F "model=GEM_PIX_2" -F "screen_ratio=16:9" -F "count=1" \
+  -F "files=@/path/to/ref.jpg"
+
+8) TẠO VIDEO TỪ START IMAGE
+curl -X POST "https://nathamedia.net/api/veo/videos/from-start-image" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -F "prompt=Camera slowly pushes in, cinematic motion, realistic" \
+  -F "model=FAST" -F "screen_ratio=16:9" -F "count=1" \
+  -F "files=@/path/to/start.jpg"
+
+9) TẠO VIDEO TỪ REFERENCE IMAGE
+curl -X POST "https://nathamedia.net/api/veo/videos/from-reference-image" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -F "prompt=Animate this subject walking through neon rain" \
+  -F "model=FAST" -F "screen_ratio=9:16" -F "count=1" \
+  -F "files=@/path/to/ref.jpg"
+
+10) TẠO VIDEO START-END IMAGE
+curl -X POST "https://nathamedia.net/api/veo/videos/from-start-end-images" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -F "prompt=Smooth transition from start frame to end frame" \
+  -F "model=FAST" -F "screen_ratio=16:9" -F "count=1" \
+  -F "files=@/path/to/start.jpg" -F "files=@/path/to/end.jpg"
+
+11) TẠO TEXT TO VIDEO FLOW CŨ
+curl -X POST "https://nathamedia.net/api/veo/text-to-video" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"project_id":"PROJECT_ID","name":"T2V API","model":"FAST","screen_ratio":"16:9","prompts":["A cinematic drone shot over mountains at sunrise"]}'
+
+12) IMAGE TO VIDEO FLOW CŨ
+curl -X POST "https://nathamedia.net/api/veo/image-to-video" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -F "project_id=PROJECT_ID" -F "name=I2V API" -F "model=FAST" \
+  -F "screen_ratio=16:9" -F "prompts=Animate this image with cinematic camera movement" \
+  -F "file=@/path/to/start.jpg"
+
+13) FRAMES TO VIDEO FLOW CŨ
+curl -X POST "https://nathamedia.net/api/veo/frames-to-video" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -F "project_id=PROJECT_ID" -F "name=Frames API" -F "model=FAST" \
+  -F "screen_ratio=16:9" -F "prompts=Move naturally from frame one to frame two" \
+  -F "files=@/path/to/start.jpg" -F "files=@/path/to/end.jpg"
+
+14) LIST TASK VIDEO/IMAGE
+curl -X GET "https://nathamedia.net/api/veo/videos?page=1&limit=20&token=YOUR_API_KEY"
+
+15) LIST TASK THEO PROJECT
+curl -X GET "https://nathamedia.net/api/veo/videos?project_id=PROJECT_ID&page=1&limit=50&token=YOUR_API_KEY"
+
+16) LỌC TASK THEO STATUS / MEDIA TYPE
+curl -X GET "https://nathamedia.net/api/veo/videos?status=COMPLETED&media_type=VIDEO&page=1&limit=20&token=YOUR_API_KEY"
+curl -X GET "https://nathamedia.net/api/veo/videos?status=FAILED&media_type=IMAGE&page=1&limit=20&token=YOUR_API_KEY"
+
+17) XEM 1 TASK
+curl -X GET "https://nathamedia.net/api/veo/video?task_id=TASK_ID&token=YOUR_API_KEY"
+
+18) DOWNLOAD/MỞ MEDIA ĐÃ HOÀN THÀNH
+curl -L -X GET "https://nathamedia.net/api/veo/download/TASK_ID?token=YOUR_API_KEY" --output media_output.mp4
+
+19) XEM ẢNH OUTPUT THEO TASK ẢNH
+curl -L -X GET "https://nathamedia.net/api/veo/image/TASK_ID?idx=0&token=YOUR_API_KEY" --output image_output.jpg
+
+20) XEM ẢNH THAM CHIẾU ĐÃ UPLOAD
+curl -L -X GET "https://nathamedia.net/api/veo/ref-image/TASK_ID?idx=0&token=YOUR_API_KEY" --output ref_image.jpg
+
+21) POLL/WAIT VIDEO FLOW CŨ
+curl -X POST "https://nathamedia.net/api/veo/wait-for-video" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"task_id":"TASK_ID"}'
+
+22) XOÁ TASK, ADMIN ONLY
+curl -X DELETE "https://nathamedia.net/api/veo/video/TASK_ID" \
+  -H "X-API-Key: YOUR_API_KEY"
+
+23) RUNTIME TOKEN/PROXY OVERRIDE, NẾU CẦN
+curl -X POST "https://nathamedia.net/api/veo/images" \
+  -H "Content-Type: application/json" -H "X-API-Key: YOUR_API_KEY" \
+  -d '{"prompt":"Batch with explicit runtime tokens","runtime_tokens":["token1","token2"],"runtime_proxies":["host1:port:user:pass","host2:port:user:pass"],"model":"GEM_PIX_2","screen_ratio":"16:9","count":1}'
+
+24) FIELD THƯỜNG DÙNG
+prompt: string, có thể nhiều dòng. count: 1-100. screen_ratio: 16:9 | 9:16 | 1:1.
+model ảnh: GEM_PIX_2. model video thường: FAST.
+project_id: dùng project cũ. project_name/new_project_name: tạo project mới.
+image_paths/images: path ảnh trên server. files: multipart upload ảnh.
+
+25) LUỒNG KHUYÊN DÙNG
+Bước 1 POST tạo task -> lấy data.items[].id hoặc data.id.
+Bước 2 GET /api/veo/video?task_id=TASK_ID để kiểm tra status.
+Bước 3 Khi COMPLETED, dùng download_url hoặc /api/veo/download/TASK_ID để mở/tải media.
+Không mở trực tiếp link flow-content.google vì có thể Forbidden; dùng endpoint download nội bộ.

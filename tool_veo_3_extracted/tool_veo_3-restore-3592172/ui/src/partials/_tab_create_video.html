@@ -1,0 +1,202 @@
+<!-- TAB: CREATE VIDEO (BATCH) -->
+<div x-cloak x-show="activeMenu === 'create_video'" class="max-w-5xl mx-auto">
+    <div class="bg-white rounded-xl p-8 border border-slate-200 shadow-sm">
+        <div class="mb-8 pb-5 border-b border-slate-100 flex items-center justify-between">
+            <div>
+                <h3 class="text-xl font-bold text-slate-900 tracking-tight">Trình Tạo Video
+                    (Google Veo
+                    3)</h3>
+                <p class="text-[13px] text-slate-500 mt-1.5">Dịch vụ sẽ tự động gửi prompt
+                    đến Google
+                    Veo 3 và sinh ra video chất lượng cao.</p>
+            </div>
+            <div
+                class="w-10 h-10 bg-slate-50 text-slate-600 rounded-lg flex items-center justify-center border border-slate-200 shadow-sm">
+                <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+            </div>
+        </div>
+
+        <form @submit.prevent="createVideo" class="space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Chon/Them moi Project -->
+                <div class="md:col-span-2 space-y-3">
+                    <div>
+                        <label class="block text-[13px] font-semibold text-slate-700 mb-1.5 flex justify-between">
+                            <span>Chọn Dự Án Video</span>
+                            <span class="text-blue-600 font-medium text-xs cursor-pointer hover:underline"
+                                @click="loadProjects()"><i class="fa-solid fa-rotate-right"></i> Làm
+                                mới</span>
+                        </label>
+                        <div class="relative">
+                            <select x-model="batchForm.project_id"
+                                class="w-full bg-slate-50 border border-slate-200 rounded-md px-5 py-2.5 text-[14px] text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none appearance-none cursor-pointer shadow-sm transition-all overflow-hidden text-ellipsis whitespace-nowrap">
+                                <option value="NEW" class="font-bold text-blue-600">✨ Tạo
+                                    Dự Án Mới (Tên tùy chỉnh)</option>
+                                <template x-for="p in projects" :key="p.id">
+                                    <option :value="p.id" x-text="p.name + ' (' + p.video_count + ' videos)'">
+                                    </option>
+                                </template>
+                            </select>
+                            <div
+                                class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-400 z-0">
+                                <i class="fa-solid fa-angle-down text-[10px]"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input for NEW project name -->
+                    <div x-show="batchForm.project_id === 'NEW'" x-collapse>
+                        <label class="block text-[13px] font-semibold text-slate-700 mb-1.5 text-blue-700">Tên
+                            dự án mới</label>
+                        <input x-model="batchForm.name" type="text" :required="batchForm.project_id === 'NEW'"
+                            class="w-full bg-slate-50/50 hover:bg-slate-50 border border-blue-200 rounded-md px-5 py-2.5 text-[14px] text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
+                            placeholder="Ví dụ: Kênh Youtube Sức Khoẻ (10 Videos)...">
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="flex justify-between items-end mb-1.5">
+                    <label class="block text-[13px] font-semibold text-slate-700">Danh sách
+                        chữ nhắc
+                        (Prompts) - Mỗi dòng 1 dòng</label>
+                    <div class="flex items-center gap-3">
+                        <!-- Prompt Counter -->
+                        <div class="text-[12px] font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
+                            <span class="text-blue-600 font-bold"
+                                x-text="batchForm.promptsText.split('\n').filter(line => line.trim() !== '').length"></span>
+                            Prompts detected
+                        </div>
+                        <label
+                            class="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer rounded-md text-[12px] font-semibold border border-slate-200 shadow-sm transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-import text-slate-400"></i> Nhập file
+                            .txt
+                            <input type="file" accept=".txt" class="hidden" @change="handleFileUpload">
+                        </label>
+                        <label
+                            class="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-700 cursor-pointer rounded-md text-[12px] font-semibold border border-emerald-200 shadow-sm transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-excel text-emerald-500"></i> Nhập
+                            .xlsx
+                            <input type="file" accept=".xlsx,.xls" class="hidden" @change="handleVideoExcelImport($event)">
+                        </label>
+                    </div>
+                </div>
+                <textarea x-model="batchForm.promptsText" required rows="6"
+                    class="w-full bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-md px-5 py-3 text-[14px] leading-relaxed text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all shadow-sm font-mono text-xs"
+                    placeholder="Prompt video 1...&#10;Prompt video 2...&#10;Prompt video 3..."></textarea>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                <div>
+                    <label class="block text-[13px] font-semibold text-slate-700 mb-1.5 flex items-center gap-1">Video
+                        / Prompt <i class="fa-solid fa-circle-info text-[10px] text-slate-400"
+                            title="Số lượng video muốn tạo ra cho MỖI dòng chữ nhắc"></i></label>
+                    <input type="number" x-model.number="batchForm.videosPerPrompt" min="1" max="10"
+                        class="w-full bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-md px-5 py-2.5 text-[14px] text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all shadow-sm">
+                </div>
+                <!-- <div>
+                    <label class="block text-[13px] font-semibold text-slate-700 mb-1.5 flex items-center gap-1">
+                        Luồng
+                        chạy
+                        <i class="fa-solid fa-circle-info text-[10px] text-slate-400"
+                            title="Gửi bao nhiêu yêu cầu tạo video lên Google Veo cùng lúc"></i></label>
+                    <div class="relative">
+                        <select x-model.number="batchForm.maxThreads"
+                            class="w-full bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-md px-5 py-2.5 text-[14px] text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none appearance-none transition-all shadow-sm">
+                            <option value="1">1 Luồng</option>
+                            <option value="2">2 Luồng</option>
+                            <option value="3">3 Luồng</option>
+                            <option value="5">5 Luồng</option>
+                        </select>
+                        <div
+                            class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                        </div>
+                    </div>
+                </div> -->
+                <div>
+                    <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">Tỷ
+                        lệ khung
+                        hình</label>
+                    <div class="relative">
+                        <select x-model="batchForm.screen_ratio"
+                            class="w-full bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-md px-5 py-2.5 text-[14px] text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none appearance-none transition-all shadow-sm">
+                            <option value="16:9">Ngang (16:9)</option>
+                            <option value="9:16">Dọc (9:16)</option>
+                        </select>
+                        <div
+                            class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[13px] font-semibold text-slate-700 mb-1.5">Mô
+                        hình
+                        AI</label>
+                    <div class="relative">
+                        <select x-model="batchForm.model"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-md px-5 py-2.5 text-[14px] text-slate-900 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none appearance-none cursor-pointer shadow-sm transition-all text-ellipsis">
+                            <option value="VEO_3.1_FAST">VEO 3.1 FAST (Mặc định)</option>
+                            <option value="VEO_3.1_QUALITY">VEO 3.1 QUALITY</option>
+                            <option value="IMAGEN_3.1_FAST">IMAGEN 3.1 (Tạo Ảnh)</option>
+                        </select>
+                        <div
+                            class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-blue-500">
+                            <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <div class="pt-5 flex justify-end">
+                <button type="submit" :disabled="videoCreating"
+                    class="text-white font-medium text-[14px] py-2 px-6 rounded-md shadow-sm border border-transparent flex items-center gap-2 transition-all disabled:opacity-50"
+                    style="background:#2563eb">
+                    <i class="fa-solid fa-spinner fa-spin" x-show="videoCreating"></i>
+                    <i class="fa-solid fa-check text-xs" x-show="!videoCreating"></i>
+                    Tạo Video
+                </button>
+            </div>
+        </form>
+
+        <!-- Modern Status Card -->
+        <div x-show="videoStatus.show" x-transition
+            class="mt-6 bg-white rounded-xl border border-blue-100 p-5 shadow-lg relative overflow-hidden backdrop-blur-sm">
+            <!-- Animated Background Gradient -->
+            <div class="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-primary/5 animate-pulse">
+            </div>
+
+            <div class="relative flex items-center gap-5">
+                <!-- Icon spinner -->
+                <div class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center border-2 border-primary border-t-transparent animate-spin"
+                    x-show="videoCreating">
+                </div>
+                <div class="flex-shrink-0 w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center border border-green-500/30"
+                    x-show="!videoCreating">
+                    <i class="fa-solid fa-check text-emerald-600 text-xl"></i>
+                </div>
+
+                <!-- Text Status -->
+                <div class="flex-1">
+                    <h4 class="text-slate-900 font-bold text-base mb-1"
+                        x-text="videoCreating ? 'Đang giao tiếp với máy chủ Google...' : 'Khởi tạo thành công!'">
+                    </h4>
+                    <div class="text-slate-600 text-sm font-medium"
+                        x-text="videoStatus.logs.length > 0 ? videoStatus.logs[videoStatus.logs.length - 1].msg : 'Đang chuẩn bị dữ liệu...'">
+                    </div>
+                </div>
+            </div>
+
+            <template x-if="!videoCreating">
+                <div class="mt-4 pt-4 border-t border-slate-200 flex justify-end">
+                    <button type="button" @click="activeMenu='video_gallery'; loadVideos();"
+                        class="text-sm font-semibold text-primary hover:text-blue-600 transition-colors flex items-center gap-2">
+                        Chuyển đến Thư viện Video <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>

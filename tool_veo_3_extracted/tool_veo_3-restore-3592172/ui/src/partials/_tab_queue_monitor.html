@@ -1,0 +1,621 @@
+<!-- TAB: GIÁM SÁT HÀNG CHỜ (QUEUE MONITOR) -->
+<div x-cloak x-show="activeMenu === 'queue_monitor' && isAdmin" class="space-y-5" x-data="{
+        qmData: null,
+        qmLoading: false,
+        qmAutoRefresh: true,
+        qmInterval: null,
+        // ── Log Viewer state (streaming real-time) ───────────────────────
+        qmLogOpen: false,
+        qmLogLoading: false,
+        qmLogAutoRefresh: true,       // default ON — streaming ngay khi mở
+        qmLogInterval: null,
+        qmLogIntervalMs: 1500,         // poll mỗi 1.5s
+        qmLogFilter: { project_id: '', task_id: '', account_name: '', contains: '', lines: 300, include_rotated: false },
+        qmLogResult: null,             // {filters, files_read, total_matched, lines_returned, lines, next_byte}
+        qmLogLines: [],                // accumulated lines (append-only khi streaming)
+        qmLogCursor: 0,                // byte offset cho incremental
+        qmLogMaxLinesInDOM: 2000,     // cap để browser không lag
+        qmLogTitle: '',
+        qmLogFollowBottom: true,       // auto-scroll đến cuối khi có dòng mới
+        qmLogNewCount: 0,              // số dòng mới từ lần poll cuối (blink badge)
+        async loadQueueMonitor() {
+            this.qmLoading = true;
+            try {
+                const data = await this.apiCall('/admin/queue/monitor');
+                this.qmData = data;
+            } catch(e) { console.error(e); }
+            this.qmLoading = false;
+        },
+        openLogViewer(context) {
+            this.qmLogFilter.project_id = context.project_id || '';
+            this.qmLogFilter.task_id = context.task_id || '';
+            this.qmLogFilter.account_name = context.account_name || '';
+            this.qmLogFilter.contains = context.contains || '';
+            this.qmLogFilter.lines = 300;
+            this.qmLogFilter.include_rotated = false;
+            this.qmLogTitle = context.title || 'Xem log';
+            this.qmLogOpen = true;
+            this.qmLogLines = [];
+            this.qmLogCursor = 0;
+            this.qmLogFollowBottom = true;
+            this.qmLogAutoRefresh = true;  // Mở là stream luôn
+            this.loadLogs({ reset: true });
+            // Start polling
+            if (this.qmLogInterval) clearInterval(this.qmLogInterval);
+            this.qmLogInterval = setInterval(() => {
+                if (this.qmLogOpen && this.qmLogAutoRefresh) this.loadLogs({ reset: false });
+            }, this.qmLogIntervalMs);
+        },
+        closeLogViewer() {
+            this.qmLogOpen = false;
+            this.qmLogAutoRefresh = false;
+            if (this.qmLogInterval) { clearInterval(this.qmLogInterval); this.qmLogInterval = null; }
+        },
+        resetLogStream() {
+            // Khi đổi filter hoặc bấm Reload manual → load lại từ đầu
+            this.qmLogLines = [];
+            this.qmLogCursor = 0;
+            this.loadLogs({ reset: true });
+        },
+        async loadLogs({ reset = false } = {}) {
+            if (this.qmLogLoading) return;
+            this.qmLogLoading = true;
+            try {
+                const p = this.qmLogFilter;
+                const qs = new URLSearchParams();
+                if (p.project_id) qs.set('project_id', p.project_id);
+                if (p.task_id) qs.set('task_id', p.task_id);
+                if (p.account_name) qs.set('account_name', p.account_name);
+                if (p.contains) qs.set('contains', p.contains);
+                qs.set('lines', String(p.lines || 300));
+                if (p.include_rotated) qs.set('include_rotated', '1');
+                // Incremental mode: chỉ gửi since_byte nếu không reset + đã có cursor
+                if (!reset && this.qmLogCursor > 0) {
+                    qs.set('since_byte', String(this.qmLogCursor));
+                }
+                const data = await this.apiCall('/admin/logs/tail?' + qs.toString());
+                this.qmLogResult = data;
+                if (data.reset || reset || !this.qmLogLines.length) {
+                    // Replace toàn bộ (lần đầu hoặc file rotated)
+                    this.qmLogLines = Array.isArray(data.lines) ? data.lines.slice() : [];
+                    this.qmLogNewCount = 0;
+                } else {
+                    // Append new lines (incremental streaming)
+                    const newLines = Array.isArray(data.lines) ? data.lines : [];
+                    if (newLines.length > 0) {
+                        this.qmLogLines = this.qmLogLines.concat(newLines);
+                        this.qmLogNewCount = newLines.length;
+                        // Cap array để browser không lag khi log quá dài
+                        if (this.qmLogLines.length > this.qmLogMaxLinesInDOM) {
+                            this.qmLogLines = this.qmLogLines.slice(-this.qmLogMaxLinesInDOM);
+                        }
+                    } else {
+                        this.qmLogNewCount = 0;
+                    }
+                }
+                if (typeof data.next_byte === 'number') {
+                    this.qmLogCursor = data.next_byte;
+                }
+                // Auto-scroll to bottom khi user đang ở đáy
+                this.$nextTick(() => {
+                    const el = document.getElementById('qm-log-scroll');
+                    if (el && this.qmLogFollowBottom) el.scrollTop = el.scrollHeight;
+                });
+            } catch(e) {
+                console.error('[qmLog] load failed', e);
+                this.showToast && this.showToast('❌ ' + (e.message || 'Load log failed'), 'error');
+            }
+            this.qmLogLoading = false;
+        },
+        toggleLogAutoRefresh() {
+            this.qmLogAutoRefresh = !this.qmLogAutoRefresh;
+        },
+        onLogScroll(ev) {
+            const el = ev && ev.target;
+            if (!el) return;
+            // Cách đáy <40px coi như user đang follow
+            const atBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 40;
+            this.qmLogFollowBottom = atBottom;
+        },
+        jumpToBottom() {
+            const el = document.getElementById('qm-log-scroll');
+            if (el) el.scrollTop = el.scrollHeight;
+            this.qmLogFollowBottom = true;
+        },
+        logLineClass(line) {
+            if (!line) return 'text-slate-400';
+            const l = line.toUpperCase();
+            if (l.includes('ERROR') || l.includes('❌') || l.includes('FAILED')) return 'text-red-600';
+            if (l.includes('WARNING') || l.includes('WARN') || l.includes('⚠')) return 'text-amber-600';
+            if (l.includes('SUCCESS') || l.includes('✅') || l.includes(' OK ')) return 'text-emerald-600';
+            if (l.includes('DEBUG')) return 'text-slate-400';
+            return 'text-slate-700';
+        },
+        formatTime(seconds) {
+            if (!seconds || seconds < 0) return '0s';
+            if (seconds < 60) return seconds + 's';
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            if (m < 60) return m + 'm ' + s + 's';
+            const h = Math.floor(m / 60);
+            return h + 'h ' + (m % 60) + 'm';
+        },
+        actionLabel(type) {
+            const map = { 'TEXT_TO_VIDEO': 'T2V', 'IMAGE_TO_VIDEO': 'I2V', 'IMAGES_TO_VIDEO': 'I2V', 'FRAMES_TO_VIDEO': 'F2V', 'CREATE_IMAGE': 'IMG' };
+            return map[type] || type;
+        },
+        actionColor(type) {
+            const map = { 'TEXT_TO_VIDEO': 'bg-blue-100 text-blue-700', 'IMAGE_TO_VIDEO': 'bg-teal-100 text-teal-700', 'IMAGES_TO_VIDEO': 'bg-teal-100 text-teal-700', 'CREATE_IMAGE': 'bg-purple-100 text-purple-700' };
+            return map[type] || 'bg-slate-100 text-slate-600';
+        }
+    }" x-init="
+        loadQueueMonitor();
+        qmInterval = setInterval(() => { if (qmAutoRefresh) loadQueueMonitor(); }, 5000);
+    ">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <div>
+            <h2 class="text-xl font-bold text-black">Giám Sát Hàng Chờ (Queue Monitor)</h2>
+            <p class="text-sm text-slate-500 mt-1">Theo dõi real-time task đang xử lý và đang chờ trong queue.</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+            <!-- Auto refresh toggle -->
+            <label
+                class="flex items-center gap-2 cursor-pointer select-none bg-white border border-slate-200 rounded-lg px-3 py-2">
+                <input type="checkbox" x-model="qmAutoRefresh"
+                    class="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400 accent-indigo-600">
+                <span class="text-xs font-medium text-black">Auto 5s</span>
+            </label>
+            <button @click="openLogViewer({title: 'Log toàn bộ hệ thống'})"
+                class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
+                title="Xem log toàn bộ (read-only)">
+                <i class="fa-solid fa-file-lines"></i>
+                <span>Xem log</span>
+            </button>
+            <button @click="loadQueueMonitor()" :disabled="qmLoading"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm disabled:opacity-50">
+                <i class="fa-solid fa-arrows-rotate" :class="qmLoading ? 'fa-spin' : ''"></i>
+                <span>Refresh</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Overview Bar -->
+    <template x-if="qmData">
+        <div class="glass-panel rounded-xl border border-slate-200 shadow-xl p-5">
+            <div class="flex flex-wrap items-center gap-4">
+                <!-- Processing -->
+                <div
+                    class="flex items-center gap-2.5 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2.5 whitespace-nowrap">
+                    <i class="fa-solid fa-gear fa-spin text-emerald-500 text-sm"></i>
+                    <span class="text-xs font-bold text-black">Đang xử lý:</span>
+                    <span class="text-lg font-black text-emerald-700 ml-1" x-text="qmData.processing_count"></span>
+                </div>
+                <!-- Pending -->
+                <div
+                    class="flex items-center gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 whitespace-nowrap">
+                    <i class="fa-solid fa-clock text-amber-500 text-sm"></i>
+                    <span class="text-xs font-bold text-black">Đang chờ:</span>
+                    <span class="text-lg font-black text-amber-700 ml-1" x-text="qmData.pending_count"></span>
+                </div>
+                <!-- VEO Queue -->
+                <div
+                    class="flex items-center gap-2.5 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 whitespace-nowrap">
+                    <i class="fa-solid fa-layer-group text-blue-500 text-sm"></i>
+                    <span class="text-xs font-bold text-black">VEO Queue:</span>
+                    <span class="text-lg font-black text-blue-700 ml-1"
+                        x-text="qmData.queue_stats?.queue_pending_veo || 0"></span>
+                </div>
+                <!-- Active Workers -->
+                <div
+                    class="flex items-center gap-2.5 bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2.5 whitespace-nowrap">
+                    <i class="fa-solid fa-bolt text-indigo-500 text-sm"></i>
+                    <span class="text-xs font-bold text-black">Workers:</span>
+                    <span class="text-lg font-black text-indigo-700 ml-1"
+                        x-text="qmData.queue_stats?.active_workers || 0"></span>
+                </div>
+                <!-- Accounts Busy / Free -->
+                <div
+                    class="flex items-center gap-2.5 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 whitespace-nowrap">
+                    <i class="fa-solid fa-users text-slate-500 text-sm"></i>
+                    <span class="text-xs font-bold text-black">Accounts:</span>
+                    <span class="text-base font-bold text-red-600 ml-1"
+                        x-text="(qmData.queue_stats?.busy_cookies?.length || 0)"></span>
+                    <span class="text-xs text-slate-500">bận</span>
+                    <span class="text-slate-300 mx-1">|</span>
+                    <span class="text-base font-bold text-emerald-600"
+                        x-text="(qmData.queue_stats?.free_cookies?.length || 0)"></span>
+                    <span class="text-xs text-slate-500">rảnh</span>
+                </div>
+            </div>
+
+            <!-- Project Summary -->
+            <template x-if="qmData.project_summary && qmData.project_summary.length > 0">
+                <div class="mt-4 pt-4 border-t border-slate-100">
+                    <span class="text-xs font-bold text-black mr-2">Theo dự án:</span>
+                    <div class="flex flex-wrap gap-2.5 mt-2">
+                        <template x-for="(ps, idx) in qmData.project_summary" :key="idx">
+                            <div
+                                class="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-full pl-3 pr-1 py-1">
+                                <span class="text-[11px] font-bold text-black truncate max-w-[150px]"
+                                    x-text="ps.name"></span>
+                                <template x-if="ps.processing > 0">
+                                    <span
+                                        class="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full"
+                                        x-text="ps.processing + ' ⚙'"></span>
+                                </template>
+                                <template x-if="ps.pending > 0">
+                                    <span
+                                        class="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full"
+                                        x-text="ps.pending + ' ⏳'"></span>
+                                </template>
+                                <button @click="openLogViewer({project_id: ps.id, title: 'Log project: ' + ps.name})"
+                                    class="inline-flex items-center justify-center w-5 h-5 rounded-full hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors"
+                                    title="Xem log của project này">
+                                    <i class="fa-solid fa-file-lines text-[10px]"></i>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Concurrency Debug -->
+            <div class="mt-4 pt-4 border-t border-slate-100">
+                <div class="flex flex-wrap gap-4">
+                    <div
+                        class="flex items-center gap-2.5 bg-white border border-slate-200 rounded-lg px-4 py-2.5 whitespace-nowrap">
+                        <span class="text-[11px] font-bold text-slate-500">VEO Tasks:</span>
+                        <span class="text-sm font-black ml-1"
+                            x-text="(qmData.queue_stats?.active_veo_tasks || 0) + '/' + (qmData.queue_stats?.max_concurrent || 0)"
+                            :class="(qmData.queue_stats?.active_veo_tasks || 0) >= (qmData.queue_stats?.max_concurrent || 1) ? 'text-red-600' : 'text-emerald-600'"></span>
+                    </div>
+                    <div
+                        class="flex items-center gap-2.5 bg-white border border-slate-200 rounded-lg px-4 py-2.5 whitespace-nowrap">
+                        <span class="text-[11px] font-bold text-slate-500">Veo3 Tasks:</span>
+                        <span class="text-sm font-black ml-1"
+                            x-text="(qmData.queue_stats?.active_grok_tasks || 0) + '/' + (qmData.queue_stats?.max_concurrent_grok || 0)"
+                            :class="(qmData.queue_stats?.active_grok_tasks || 0) >= (qmData.queue_stats?.max_concurrent_grok || 1) ? 'text-red-600' : 'text-emerald-600'"></span>
+                    </div>
+                </div>
+
+                <!-- 403 Fail Per Account -->
+                <template
+                    x-if="qmData.queue_stats?.account_403_fails && Object.keys(qmData.queue_stats.account_403_fails).length > 0">
+                    <div class="mt-2">
+                        <span class="text-[10px] font-bold text-red-600 mr-2">⚠ Accounts đang lỗi 403:</span>
+                        <div class="flex flex-wrap gap-1.5 mt-1">
+                            <template
+                                x-for="[acc, cnt] in Object.entries(qmData.queue_stats.account_403_fails).filter(([k,v]) => v > 0)"
+                                :key="acc">
+                                <span
+                                    class="inline-flex items-center gap-1 bg-red-50 border border-red-200 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                    <span x-text="acc.split('@')[0]" :title="acc"></span>
+                                    <span class="bg-red-200 text-red-800 px-1 rounded" x-text="'×' + cnt"></span>
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+
+    <!-- PROCESSING Tasks Table -->
+    <template x-if="qmData && qmData.processing_count > 0">
+        <div class="glass-panel rounded-xl overflow-hidden border border-emerald-200 shadow-xl">
+            <div class="p-4 flex items-center gap-2">
+                <i class="fa-solid fa-gear fa-spin text-emerald-500 text-lg"></i>
+                <h3 class="text-base font-bold text-black">Tasks Đang Xử Lý</h3>
+                <span
+                    class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-full"
+                    x-text="qmData.processing_count + ' tasks'"></span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-[10px] text-slate-500 uppercase bg-slate-50 border-y border-slate-200">
+                        <tr>
+                            <th class="px-3 py-2.5 text-left" style="width:4%">#</th>
+                            <th class="px-3 py-2.5 text-left" style="width:22%">Task</th>
+                            <th class="px-3 py-2.5 text-left" style="width:16%">Dự Án</th>
+                            <th class="px-3 py-2.5 text-left" style="width:18%">Account</th>
+                            <th class="px-3 py-2.5 text-left" style="width:8%">Loại</th>
+                            <th class="px-3 py-2.5 text-left" style="width:14%">Model</th>
+                            <th class="px-3 py-2.5 text-left" style="width:8%">Ratio</th>
+                            <th class="px-3 py-2.5 text-left" style="width:10%">Thời gian</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(task, idx) in qmData.processing_tasks" :key="task.id">
+                            <tr class="border-b border-slate-100 hover:bg-emerald-50/30 transition-colors group">
+                                <td class="px-3 py-2.5 text-xs text-slate-400 text-left" x-text="idx + 1"></td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-xs font-bold text-black truncate max-w-[180px]"
+                                            x-text="task.name" :title="task.name"></span>
+                                        <button
+                                            @click="openLogViewer({task_id: task.id, project_id: task.project_id, title: 'Log task: ' + task.name})"
+                                            class="opacity-0 group-hover:opacity-100 inline-flex items-center justify-center w-5 h-5 rounded hover:bg-indigo-100 text-slate-400 hover:text-indigo-600 transition-opacity"
+                                            title="Xem log của task này">
+                                            <i class="fa-solid fa-file-lines text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span class="text-xs font-medium text-black truncate block max-w-[140px]"
+                                        x-text="task.project_name" :title="task.project_name"></span>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span class="font-mono text-[10px] text-black truncate block max-w-[160px]"
+                                        x-text="task.account" :title="task.account"></span>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span
+                                        class="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                        :class="actionColor(task.action_type)"
+                                        x-text="actionLabel(task.action_type)"></span>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span class="text-[10px] font-medium text-black" x-text="task.model"></span>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span class="text-[10px] text-black" x-text="task.screen_ratio"></span>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span class="text-xs font-bold"
+                                        :class="task.running_time_s > 300 ? 'text-red-600' : task.running_time_s > 120 ? 'text-amber-600' : 'text-emerald-600'"
+                                        x-text="formatTime(task.running_time_s)"></span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+
+    <!-- PENDING Tasks Table -->
+    <template x-if="qmData && qmData.pending_count > 0">
+        <div class="glass-panel rounded-xl overflow-hidden border border-amber-200 shadow-xl">
+            <div class="p-4 flex items-center gap-2">
+                <i class="fa-solid fa-clock text-amber-500 text-lg"></i>
+                <h3 class="text-base font-bold text-black">Tasks Đang Chờ (Pending)</h3>
+                <span
+                    class="inline-flex items-center gap-1 bg-amber-100 text-amber-700 text-[11px] font-bold px-2.5 py-1 rounded-full"
+                    x-text="qmData.pending_count + ' tasks'"></span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-[10px] text-slate-500 uppercase bg-slate-50 border-y border-slate-200">
+                        <tr>
+                            <th class="px-3 py-2.5 text-left" style="width:4%">#</th>
+                            <th class="px-3 py-2.5 text-left" style="width:26%">Task</th>
+                            <th class="px-3 py-2.5 text-left" style="width:18%">Dự Án</th>
+                            <th class="px-3 py-2.5 text-left" style="width:8%">Loại</th>
+                            <th class="px-3 py-2.5 text-left" style="width:16%">Model</th>
+                            <th class="px-3 py-2.5 text-left" style="width:8%">Ratio</th>
+                            <th class="px-3 py-2.5 text-left" style="width:8%">Status</th>
+                            <th class="px-3 py-2.5 text-left" style="width:12%">Chờ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(task, idx) in qmData.pending_tasks" :key="task.id">
+                            <tr class="border-b border-slate-100 hover:bg-amber-50/30 transition-colors group">
+                                <td class="px-3 py-2.5 text-xs text-slate-400 text-left" x-text="idx + 1"></td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-xs font-bold text-black truncate max-w-[200px]"
+                                            x-text="task.name" :title="task.name"></span>
+                                        <button
+                                            @click="openLogViewer({task_id: task.id, project_id: task.project_id, title: 'Log task: ' + task.name})"
+                                            class="opacity-0 group-hover:opacity-100 inline-flex items-center justify-center w-5 h-5 rounded hover:bg-indigo-100 text-slate-400 hover:text-indigo-600 transition-opacity"
+                                            title="Xem log của task này">
+                                            <i class="fa-solid fa-file-lines text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span class="text-xs font-medium text-black truncate block max-w-[150px]"
+                                        x-text="task.project_name" :title="task.project_name"></span>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span
+                                        class="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                        :class="actionColor(task.action_type)"
+                                        x-text="actionLabel(task.action_type)"></span>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span class="text-[10px] font-medium text-black" x-text="task.model"></span>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span class="text-[10px] text-black" x-text="task.screen_ratio"></span>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span
+                                        class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                        :class="task.status === 'PROCESSING' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+                                        x-text="task.status"></span>
+                                </td>
+                                <td class="px-3 py-2.5 text-left">
+                                    <span class="text-xs font-bold text-amber-600"
+                                        x-text="formatTime(task.waiting_time_s)"></span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </template>
+
+    <!-- Empty State -->
+    <template x-if="qmData && qmData.processing_count === 0 && qmData.pending_count === 0">
+        <div class="glass-panel rounded-xl border border-slate-200 shadow-xl p-10 text-center">
+            <i class="fa-solid fa-check-circle text-emerald-400 text-4xl mb-3"></i>
+            <p class="text-base font-bold text-black">Queue trống — không có task nào đang chạy hoặc chờ</p>
+        </div>
+    </template>
+
+    <!-- Loading -->
+    <template x-if="!qmData && qmLoading">
+        <div class="glass-panel rounded-xl border border-slate-200 shadow-xl p-10 text-center">
+            <i class="fa-solid fa-spinner fa-spin text-indigo-400 text-3xl mb-3"></i>
+            <p class="text-sm text-black">Đang tải dữ liệu queue...</p>
+        </div>
+    </template>
+
+    <!-- ───── LOG VIEWER MODAL ───── -->
+    <div x-cloak x-show="qmLogOpen" x-transition.opacity
+        class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+        @keydown.escape.window="closeLogViewer()">
+        <div @click.self="closeLogViewer()" class="absolute inset-0"></div>
+        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden"
+            @click.stop>
+            <!-- Header -->
+            <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50 shrink-0">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-file-lines text-indigo-500"></i>
+                    <h3 class="text-sm font-bold text-black" x-text="qmLogTitle || 'Xem log'"></h3>
+                    <span class="text-[10px] text-slate-500 italic">(read-only · realtime)</span>
+                    <!-- Streaming indicator -->
+                    <template x-if="qmLogAutoRefresh">
+                        <span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+                            <span class="relative flex h-2 w-2">
+                                <span
+                                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            LIVE
+                        </span>
+                    </template>
+                    <template x-if="qmLogNewCount > 0 && qmLogAutoRefresh">
+                        <span class="text-[10px] font-bold text-indigo-600" x-text="'+' + qmLogNewCount"></span>
+                    </template>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="flex items-center gap-1.5 cursor-pointer select-none text-xs"
+                        :title="'Tự động refresh mỗi ' + (qmLogIntervalMs/1000) + 's'">
+                        <input type="checkbox" :checked="qmLogAutoRefresh" @change="toggleLogAutoRefresh()"
+                            class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400 accent-indigo-600">
+                        <span class="font-medium text-slate-700">Live</span>
+                    </label>
+                    <button @click="resetLogStream()" :disabled="qmLogLoading"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 disabled:opacity-50"
+                        title="Tải lại từ đầu (reset cursor)">
+                        <i class="fa-solid fa-arrows-rotate" :class="qmLogLoading ? 'fa-spin' : ''"></i>
+                        <span x-text="qmLogLoading ? '...' : 'Reload'"></span>
+                    </button>
+                    <button @click="closeLogViewer()"
+                        class="text-slate-500 hover:text-red-600 w-8 h-8 flex items-center justify-center rounded hover:bg-red-50 transition-colors">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter bar -->
+            <div class="px-5 py-3 border-b border-slate-100 bg-slate-50/50 shrink-0">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Project ID</label>
+                        <input type="text" x-model="qmLogFilter.project_id" @keydown.enter="resetLogStream()"
+                            class="w-full bg-white border border-slate-300 outline-none px-2 py-1 rounded text-[11px] font-mono focus:ring-2 focus:ring-indigo-400"
+                            placeholder="uuid...">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Task ID</label>
+                        <input type="text" x-model="qmLogFilter.task_id" @keydown.enter="resetLogStream()"
+                            class="w-full bg-white border border-slate-300 outline-none px-2 py-1 rounded text-[11px] font-mono focus:ring-2 focus:ring-indigo-400"
+                            placeholder="uuid...">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Account</label>
+                        <input type="text" x-model="qmLogFilter.account_name" @keydown.enter="resetLogStream()"
+                            class="w-full bg-white border border-slate-300 outline-none px-2 py-1 rounded text-[11px] font-mono focus:ring-2 focus:ring-indigo-400"
+                            placeholder="email@gmail.com">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Keyword</label>
+                        <input type="text" x-model="qmLogFilter.contains" @keydown.enter="resetLogStream()"
+                            class="w-full bg-white border border-slate-300 outline-none px-2 py-1 rounded text-[11px] font-mono focus:ring-2 focus:ring-indigo-400"
+                            placeholder="ERROR / FAIL / 403...">
+                    </div>
+                    <div class="flex items-end gap-2">
+                        <div class="flex-1">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase">Lines</label>
+                            <input type="number" x-model.number="qmLogFilter.lines" min="50" max="2000"
+                                @keydown.enter="resetLogStream()"
+                                class="w-full bg-white border border-slate-300 outline-none px-2 py-1 rounded text-[11px] font-mono focus:ring-2 focus:ring-indigo-400">
+                        </div>
+                        <label
+                            class="flex items-center gap-1 cursor-pointer text-[10px] font-bold text-slate-600 mb-1.5">
+                            <input type="checkbox" x-model="qmLogFilter.include_rotated" @change="resetLogStream()"
+                                class="w-3 h-3 rounded border-slate-300 text-indigo-600 accent-indigo-600">
+                            <span>+ rotated</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <template x-if="qmLogResult">
+                <div class="px-5 py-2 border-b border-slate-100 bg-white shrink-0 flex items-center gap-3 flex-wrap">
+                    <span class="text-[11px] text-slate-600">
+                        <b x-text="qmLogLines.length"></b> lines (buffer max <span x-text="qmLogMaxLinesInDOM"></span>)
+                    </span>
+                    <template x-for="f in (qmLogResult.files_read || [])" :key="f.path">
+                        <span class="text-[10px] text-slate-400 font-mono"
+                            x-text="f.path + (f.lines_scanned !== undefined ? ' (' + f.lines_scanned + ')' : f.error ? ' ⚠' : '')"></span>
+                    </template>
+                    <template
+                        x-if="qmLogResult.filters && qmLogResult.filters.keywords && qmLogResult.filters.keywords.length === 0">
+                        <span class="text-[10px] text-amber-600 italic">⚠ Không có filter — stream toàn bộ log</span>
+                    </template>
+                    <template x-if="qmLogResult.incremental">
+                        <span class="text-[10px] text-emerald-600 font-bold">▸ streaming from byte <span
+                                x-text="qmLogCursor.toLocaleString()"></span></span>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Log content -->
+            <div id="qm-log-scroll" @scroll.passive="onLogScroll($event)"
+                class="flex-1 overflow-auto bg-slate-900 p-3 font-mono text-[11px] leading-relaxed relative">
+                <template x-if="qmLogLines.length > 0">
+                    <div>
+                        <template x-for="(ln, i) in qmLogLines" :key="i">
+                            <div class="whitespace-pre-wrap break-all py-0.5 border-b border-slate-800/30"
+                                :class="logLineClass(ln).replace('text-red-600','text-red-400').replace('text-amber-600','text-amber-300').replace('text-emerald-600','text-emerald-300').replace('text-slate-700','text-slate-200').replace('text-slate-400','text-slate-500')"
+                                x-text="ln"></div>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="qmLogLines.length === 0 && !qmLogLoading">
+                    <div class="text-center text-slate-500 py-10">
+                        <i class="fa-solid fa-inbox text-3xl mb-2"></i>
+                        <p class="text-xs">Không tìm thấy log line nào khớp bộ lọc.</p>
+                        <template x-if="qmLogAutoRefresh">
+                            <p class="text-[10px] text-emerald-500 mt-2">Đang stream — line mới sẽ xuất hiện ở đây.</p>
+                        </template>
+                    </div>
+                </template>
+                <template x-if="qmLogLoading && qmLogLines.length === 0">
+                    <div class="text-center text-slate-400 py-10">
+                        <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
+                    </div>
+                </template>
+
+                <!-- Jump to bottom khi user scroll lên trên -->
+                <button x-show="!qmLogFollowBottom && qmLogLines.length > 0" @click="jumpToBottom()" x-transition
+                    class="sticky bottom-2 float-right mr-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+                    <i class="fa-solid fa-arrow-down"></i>
+                    <span>Đến cuối</span>
+                    <template x-if="qmLogNewCount > 0">
+                        <span class="bg-emerald-400 text-indigo-900 px-1 rounded"
+                            x-text="qmLogNewCount + ' mới'"></span>
+                    </template>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
