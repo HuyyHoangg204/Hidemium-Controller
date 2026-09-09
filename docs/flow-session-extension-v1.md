@@ -2,13 +2,13 @@
 
 ## Status and scope
 
-Extension version: **1.2.0**. This change is confined to Hidemium's browser extension.
+Extension version: **1.2.1**. This change is confined to Hidemium's browser extension.
 It does not change Waoowaoo or Banana application code, deploy a receiver, or prove
 the old Veo HTTP adapter is compatible with the new Flow session.
 
-Packaged artifact: `.artifacts/flow-session-extension-1.2.0.zip` (ten extension files,
-no profile or credentials). SHA-256:
-`f575214a56c138ef8ccca2706a3781fd0fd74ac9fd9559d91feeb97e5deb664c`.
+Packaged artifact: `.artifacts/flow-session-extension-1.2.1.zip` (ten extension files,
+no profile or credentials). Version 1.2.0 is superseded: it cannot authenticate to
+the secured Waoowaoo receiver. Use 1.2.1 for deployment preparation.
 
 The approved live experiment showed that the combination of fourteen Google-parent
 authentication cookies and two Flow cookies restores the manually logged-in account
@@ -35,7 +35,11 @@ Under `tool_veo_3_extracted/tool_veo_3-restore-3592172/captcha-solver-main/src/m
    merely restarting an existing browser updates its cached service-worker code.
 2. Open the already-authenticated Flow page. The collector does not navigate or
    reload that page, nor does cookie mode inject the CAPTCHA worker.
-3. Set Cookie mode and the receiver origin. Enable the extension and explicitly
+3. Set Cookie mode, receiver origin, and the dedicated collector key configured as
+   `FLOW_COOKIE_SYNC_KEY` on the receiver (32–512 characters). The key is stored only
+   in local storage restricted to trusted extension contexts, never sync storage.
+   Leaving the password field empty preserves the key only for the same origin.
+   Changing origin requires a new key. Enable the extension and explicitly
    select **Đồng bộ phiên Google + Flow (v1)**, then save.
 4. **Kiểm tra phiên Flow, không gửi cookie** validates the live identity and cookie
    snapshot and returns only status/count. It does not send a bundle.
@@ -54,7 +58,9 @@ Only HTTPS or loopback HTTP origins are accepted. Embedded URL credentials, quer
 strings, fragments and non-root paths are rejected. Redirects are rejected.
 
 `GET /api/cookie-sync/flow` must return a successful JSON response with
-`protocol: "flow-session-v1"`. This is compatibility negotiation, not authentication.
+`protocol: "flow-session-v1"`. Both GET and POST require `X-Extension-Key`.
+Compatibility negotiation alone is not authentication. Missing key stops before
+cookie reads or requests; changing the key during capture aborts upload.
 
 `POST /api/cookie-sync/flow` receives:
 
@@ -95,7 +101,7 @@ Automated command from repository root:
 node --test tests/extension-*.test.cjs
 ```
 
-**45 tests passed**, covering pure bundle rules, account/cookie/destination changes,
+**48 tests passed**, covering pure bundle rules, account/cookie/destination changes,
 timeout/late work, single-flight and check-vs-sync contention, receiver negotiation,
 Chrome-store selection, ambiguous accounts, popup sender authorization, profile-local
 consent, legacy-fallback prevention and disabled/cookie-mode side effects.
@@ -137,6 +143,23 @@ the ZIP package or raw test logs.
 
 ## Limits
 
+### Authenticated receiver proof (1.2.1)
+
+The real extension was loaded on the same manually authenticated source profile,
+then sent its bundle directly to Waoowaoo `npm run dev` on loopback port 3200.
+Twenty check-only captures passed; three concurrent sync calls produced one stored
+revision. Anonymous discovery was rejected. The database held encrypted data and
+legacy Labs accounts remained unchanged. A separate, explicitly synthetic local
+machine/account lease authorized retrieval of the real bundle; that returned
+bundle restored the correct identity in a clean Cloak profile before and after
+restart. Wrong machine, expired/released lease, stale upload and revoked bundle
+were rejected. Test fixtures were removed and source collection disabled afterward.
+
+Sanitized evidence:
+`/Users/server/workspace/banana_tool/tool_veo3_mau/.runtime/flow-server-real-proof-1788983515.json`.
+This is real cookie transport/restore proof, not video generation or deployed-server
+proof. The current production receiver has not been upgraded by this task.
+
 - This is same-machine, short-duration portability proof for the user's account.
   It does not certify other accounts, cross-OS/IP transfers, expiry recovery or load.
 - Collection reads identity from the authenticated Flow UI and checks stability
@@ -147,5 +170,6 @@ the ZIP package or raw test logs.
   upsert before scheduled production use.
 - A provider cookie contract change fails closed rather than expanding collection
   scope or adding retries automatically.
-- Waoowaoo storage/transport and Banana consumption remain the next implementation
-  phase. Do not call this three-project E2E or a complete Veo-generation fix.
+- Waoowaoo storage/transport now has local integration proof; Banana application
+  consumption remains a separate integration phase. Do not call this three-project
+  E2E or a complete Veo-generation fix.

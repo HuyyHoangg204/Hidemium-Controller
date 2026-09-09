@@ -53,6 +53,7 @@ async function loadSettings() {
     
     elements.enabled.checked = response.enabled;
     elements.flowSessionSyncEnabled.checked = response.flowSessionSyncEnabled === true;
+    document.getElementById('flowCollectorKeyStatus').textContent = response.hasFlowCollectorKey ? 'Đã cấu hình khóa cho máy chủ này.' : 'Chưa có khóa collector cho máy chủ này.';
     elements.autoReload.checked = response.autoReload;
     elements.reloadInterval.value = response.reloadInterval;
     elements.clearGrecaptcha.checked = response.clearGrecaptcha ?? false;
@@ -77,6 +78,7 @@ async function saveSettings() {
     const settings = {
         enabled: elements.enabled.checked,
         flowSessionSyncEnabled: elements.flowSessionSyncEnabled.checked,
+        flowCollectorKey: document.getElementById('flowCollectorKey').value,
         autoReload: elements.autoReload.checked,
         reloadInterval: parseInt(elements.reloadInterval.value),
         clearGrecaptcha: elements.clearGrecaptcha.checked,
@@ -90,6 +92,7 @@ async function saveSettings() {
     });
     
     if (!result?.success) throw new Error('Settings rejected');
+    document.getElementById('flowCollectorKey').value = '';
 }
 
 // Save và reload page

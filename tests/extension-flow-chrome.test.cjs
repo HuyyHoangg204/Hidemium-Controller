@@ -26,8 +26,9 @@ function fixture(overrides = {}) {
         },
     });
     for (const file of ['flow-session.js', 'flow-session-chrome.js']) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context);
-    context.settings = { enabled: true, operationMode: 'cookie', flowSessionSyncEnabled: true, serverUrl: 'http://127.0.0.1:43210' };
-    const sync = vm.runInContext('createChromeFlowCollector(async () => settings)', context);
+    context.settings = { enabled: true, operationMode: 'cookie', flowSessionSyncEnabled: true, serverUrl: 'http://127.0.0.1:43210', flowCollectorKey: 'k'.repeat(32) };
+    context.getCredential = overrides.getCredential || (async () => 'k'.repeat(32));
+    const sync = vm.runInContext('createChromeFlowCollector(async () => settings, getCredential)', context);
     return { sync, requests, reads, state };
 }
 
@@ -37,6 +38,7 @@ test('Chrome adapter reads one effective URL/store, emits v1 only, and saves no 
     assert.equal(reads.length, 2);
     assert.ok(reads.every(filter => filter.url === 'https://flow.google.com/' && filter.storeId === '0'));
     assert.equal(requests.length, 2);
+    assert.ok(requests.every(request => request.options.headers['X-Extension-Key'] === 'k'.repeat(32)));
     assert.ok(requests.every(request => request.url.endsWith('/api/cookie-sync/flow') && request.options.redirect === 'error' && request.options.credentials === 'omit'));
     assert.equal(JSON.parse(requests[1].options.body).session.cookies.length, 16);
     assert.equal(JSON.stringify(state).includes('fake-'), false);
@@ -63,4 +65,16 @@ test('HTTP 200 with a legacy body does not authorize cookie upload', async () =>
 test('POST must acknowledge v1 and accepted true', async () => {
     const { sync } = fixture({ fetch: async (url, options) => ({ ok: true, json: async () => options.method === 'POST' ? { ok: true } : { protocol: 'flow-session-v1' } }) });
     assert.equal((await sync()).state, 'rejected');
+});
+test('missing collector key blocks even capability discovery and cookie reads', async () => {
+    const { sync, requests, reads } = fixture({ getCredential: async () => '' });
+    assert.equal((await sync()).state, 'receiver_unsupported');
+    assert.equal(requests.length, 0);
+    assert.equal(reads.length, 0);
+});
+test('rotated collector key aborts upload after capture', async () => {
+    let calls = 0;
+    const { sync, requests } = fixture({ getCredential: async () => (++calls === 1 ? 'k' : 'j').repeat(32) });
+    assert.equal((await sync()).state, 'rejected');
+    assert.equal(requests.length, 1);
 });

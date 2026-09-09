@@ -15,7 +15,7 @@ function runtime(overrides = {}) {
     const event = name => ({ addListener: handler => { (events[name] ||= []).push(handler); } });
     const storage = { get: async defaults => typeof defaults === 'object' && defaults ? { ...defaults, ...state } : { ...state }, set: async value => Object.assign(state, value) };
     const chrome = {
-        storage: { sync: storage, local: { get: async defaults => ({ ...defaults, ...local }), set: async value => Object.assign(local, value) }, session: { get: (keys, done) => done({ captchaWorkerId: 'test' }), set: async () => {} } },
+        storage: { sync: storage, local: { setAccessLevel: async options => mutations.push(['storageAccess', options.accessLevel]), get: async defaults => ({ ...defaults, ...local }), set: async value => Object.assign(local, value) }, session: { get: (keys, done) => done({ captchaWorkerId: 'test' }), set: async () => {} } },
         runtime: { id: 'extension', getURL: value => `chrome-extension://extension/${value}`, onMessage: event('message'), onInstalled: event('installed'), onConnect: event('connect') },
         tabs: { query: async () => [{ id: 1, url: 'https://labs.google/fx/tools/flow' }], update: async (...args) => mutations.push(['update', ...args]), reload: async (...args) => mutations.push(['reload', ...args]), create: async (...args) => mutations.push(['create', ...args]), sendMessage: async () => {}, onUpdated: event('updated'), onRemoved: event('removed') },
         alarms: { clear: async () => {}, create: async () => {}, getAll: async () => [], onAlarm: event('alarm') },
@@ -38,13 +38,13 @@ test('disabled full service worker never sends headers, heartbeats or reloads id
     await vm.runInContext('_captchaLastActivity = 0; captchaCheckIdle()', instance.context);
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(instance.fetches.length, 0);
-    assert.equal(instance.mutations.length, 0);
+    assert.equal(instance.mutations.filter(item => item[0] !== 'storageAccess').length, 0);
 });
 test('enabled cookie collector never runs idle CAPTCHA reload', async () => {
     const instance = runtime({ enabled: true });
     await vm.runInContext('_captchaLastActivity = 0; captchaCheckIdle()', instance.context);
     await new Promise(resolve => setImmediate(resolve));
-    assert.equal(instance.mutations.length, 0);
+    assert.equal(instance.mutations.filter(item => item[0] !== 'storageAccess').length, 0);
 });
 test('content script cannot trigger the sensitive Flow upload command', () => {
     const instance = runtime();
@@ -86,4 +86,17 @@ test('missing local consent never downgrades Flow mode into legacy upload', asyn
     assert.equal(instance.fetches.length, 0);
     await instance.events.installed[0]({ reason: 'update' });
     assert.equal(instance.state.flowSessionSyncEnabled, true);
+});
+test('collector key stays local, is scoped to the destination, and is omitted from settings messages', async () => {
+    const instance = runtime();
+    const sender = { id: 'extension', url: 'chrome-extension://extension/popup.html' };
+    await new Promise(resolve => instance.events.message[0]({ type: 'SAVE_SETTINGS', settings: { enabled: true, operationMode: 'cookie', serverUrl: 'http://127.0.0.1:3000', flowSessionSyncEnabled: true, flowCollectorKey: 'k'.repeat(32) } }, sender, resolve));
+    assert.equal(instance.state.flowCollectorKey, undefined);
+    assert.equal(instance.local.flowCollectorCredential.key, 'k'.repeat(32));
+    assert.ok(instance.mutations.some(item => item[0] === 'storageAccess' && item[1] === 'TRUSTED_CONTEXTS'));
+    const reply = await new Promise(resolve => instance.events.message[0]({ type: 'GET_SETTINGS' }, sender, resolve));
+    assert.equal(reply.flowCollectorKey, undefined);
+    assert.equal(reply.hasFlowCollectorKey, true);
+    instance.state.serverUrl = 'https://different.example';
+    assert.equal((await vm.runInContext('getSettings()', instance.context)).hasFlowCollectorKey, false);
 });

@@ -6,7 +6,8 @@ function readFlowPageIdentity() {
     return emails.length === 1 ? emails[0] : null;
 }
 
-function createChromeFlowCollector(getSettings) {
+function createChromeFlowCollector(getSettings, getCredential) {
+    let activeKey = '';
     const sync = createFlowSessionSync({
         getSettings,
         inspect: async previous => {
@@ -26,17 +27,24 @@ function createChromeFlowCollector(getSettings) {
         },
         readCookies: storeId => chrome.cookies.getAll({ url: 'https://flow.google.com/', storeId }),
         supports: async (server, signal) => {
+            activeKey = await getCredential(server);
+            if (!activeKey) return false;
             const response = await fetch(`${server}/api/cookie-sync/flow`, {
                 credentials: 'omit', cache: 'no-store', redirect: 'error', signal,
+                headers: { 'X-Extension-Key': activeKey },
             });
             if (!response.ok) return false;
             const result = await response.json();
             return result.protocol === 'flow-session-v1';
         },
         send: async (server, payload, signal) => {
+            if (!activeKey || activeKey !== await getCredential(server)) return false;
+            const current = await getSettings();
+            if (!current.enabled || !current.flowSessionSyncEnabled || current.operationMode !== 'cookie' || flowCollectorOrigin(current.serverUrl) !== server) return false;
+            signal.throwIfAborted();
             const response = await fetch(`${server}/api/cookie-sync/flow`, {
                 method: 'POST', credentials: 'omit', cache: 'no-store', redirect: 'error', signal,
-                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+                headers: { 'Content-Type': 'application/json', 'X-Extension-Key': activeKey }, body: JSON.stringify(payload),
             });
             if (!response.ok) return false;
             const result = await response.json();

@@ -105,6 +105,8 @@ async function getSettings() {
     }
     result.serverUrl = server.origin;
     const local = await chrome.storage.local.get({ flowSessionConsentOrigin: null });
+    delete result.flowCollectorKey;
+    result.hasFlowCollectorKey = Boolean(await getFlowCollectorCredential(server.origin));
     result.flowSessionSelected = result.flowSessionSyncEnabled === true;
     result.flowSessionSyncEnabled = result.flowSessionSelected && local.flowSessionConsentOrigin === server.origin;
     API_SERVER = result.serverUrl;
@@ -117,9 +119,22 @@ async function saveSettings(settings) {
     if (server.protocol !== 'https:' && !(server.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(server.hostname))) {
         throw new Error('Collector server must use HTTPS or loopback HTTP');
     }
-    await chrome.storage.sync.set({ ...settings, serverUrl: server.origin });
+    const { flowCollectorKey, hasFlowCollectorKey, flowSessionSelected, ...publicSettings } = settings;
+    if (flowCollectorKey !== undefined && (typeof flowCollectorKey !== 'string' || (flowCollectorKey && (flowCollectorKey.length < 32 || flowCollectorKey.length > 512)))) {
+        throw new Error('Invalid collector key');
+    }
+    const previousKey = await getFlowCollectorCredential(server.origin);
+    await chrome.storage.local.set({ flowCollectorCredential: { origin: server.origin, key: flowCollectorKey || previousKey } });
+    await chrome.storage.sync.set({ ...publicSettings, serverUrl: server.origin });
     await chrome.storage.local.set({ flowSessionConsentOrigin: settings.flowSessionSyncEnabled === true ? server.origin : null });
     API_SERVER = server.origin;
+}
+
+async function getFlowCollectorCredential(origin) {
+    await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
+    const local = await chrome.storage.local.get({ flowCollectorCredential: null });
+    const credential = local.flowCollectorCredential;
+    return credential?.origin === origin && typeof credential.key === 'string' && credential.key.length >= 32 && credential.key.length <= 512 ? credential.key : '';
 }
 
 // Tạo alarm cho auto reload
@@ -411,7 +426,7 @@ const syncCookieSnapshot = createCookieSync({
     }),
 });
 
-const syncFlowSession = createChromeFlowCollector(getSettings);
+const syncFlowSession = createChromeFlowCollector(getSettings, getFlowCollectorCredential);
 
 async function pushCookiesToServer() {
     const settings = await getSettings();
