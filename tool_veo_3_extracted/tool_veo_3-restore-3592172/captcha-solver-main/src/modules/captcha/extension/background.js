@@ -2,7 +2,7 @@
 // BACKGROUND SCRIPT - Service Worker
 // ===================================
 
-importScripts('cookie-sync.js', 'flow-session.js', 'flow-session-chrome.js');
+importScripts('cookie-sync.js', 'flow-session.js', 'flow-session-chrome.js', 'managed-config.js', 'managed-flow.js');
 
 console.log('🔧 Background Script: Started');
 
@@ -59,12 +59,28 @@ chrome.webRequest.onSendHeaders.addListener(
 );
 
 const FLOW_URL = 'https://labs.google/fx/tools/flow';
+let managedFlowTabOpening = null;
+
+function ensureManagedFlowTab() {
+    if (!managedFlowTabOpening) {
+        managedFlowTabOpening = (async () => {
+            const tabs = await chrome.tabs.query({ url: 'https://flow.google.com/*' });
+            if (!tabs.length) await chrome.tabs.create({ url: 'https://flow.google.com/', active: false });
+        })().finally(() => { managedFlowTabOpening = null; });
+    }
+    return managedFlowTabOpening;
+}
 
 async function openFlowWhenEnabled() {
     try {
         const settings = await getSettings();
         if (!settings.enabled) return;
-        if (settings.operationMode === 'cookie') return;
+        if (settings.operationMode === 'cookie') {
+            if (settings.managedFlowConfigured && settings.flowSessionSyncEnabled) {
+                await ensureManagedFlowTab();
+            }
+            return;
+        }
 
         const existingTabs = await chrome.tabs.query({ url: '*://labs.google/fx/tools/flow*' });
         if (existingTabs && existingTabs.length > 0) {
@@ -96,15 +112,24 @@ const DEFAULT_SETTINGS = {
     operationMode: 'cookie' // 'cookie' = chỉ gửi cookie (không giải captcha), 'captcha' = chỉ giải captcha (không gửi cookie)
 };
 
+const initializeManagedFlow = createManagedFlowSetup({
+    config: MANAGED_FLOW_CONFIG,
+    readLocal: () => chrome.storage.local.get({ managedFlowDeployment: null }),
+    writeLocal: value => chrome.storage.local.set(value),
+    saveSettings,
+});
+
 // Lấy settings từ storage
 async function getSettings() {
+    await initializeManagedFlow();
     const result = await chrome.storage.sync.get(DEFAULT_SETTINGS);
     const server = new URL(flowCollectorOrigin(result.serverUrl || DEFAULT_API_SERVER));
     if (server.protocol !== 'https:' && !(server.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(server.hostname))) {
         throw new Error('Collector server must use HTTPS or loopback HTTP');
     }
     result.serverUrl = server.origin;
-    const local = await chrome.storage.local.get({ flowSessionConsentOrigin: null });
+    const local = await chrome.storage.local.get({ flowSessionConsentOrigin: null, managedFlowDeployment: null });
+    result.managedFlowConfigured = Boolean(MANAGED_FLOW_CONFIG && local.managedFlowDeployment === MANAGED_FLOW_CONFIG.deploymentId);
     delete result.flowCollectorKey;
     result.hasFlowCollectorKey = Boolean(await getFlowCollectorCredential(server.origin));
     result.flowSessionSelected = result.flowSessionSyncEnabled === true;
@@ -119,7 +144,7 @@ async function saveSettings(settings) {
     if (server.protocol !== 'https:' && !(server.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(server.hostname))) {
         throw new Error('Collector server must use HTTPS or loopback HTTP');
     }
-    const { flowCollectorKey, hasFlowCollectorKey, flowSessionSelected, ...publicSettings } = settings;
+    const { flowCollectorKey, hasFlowCollectorKey, flowSessionSelected, managedFlowConfigured, ...publicSettings } = settings;
     if (flowCollectorKey !== undefined && (typeof flowCollectorKey !== 'string' || (flowCollectorKey && (flowCollectorKey.length < 32 || flowCollectorKey.length > 512)))) {
         throw new Error('Invalid collector key');
     }
@@ -321,6 +346,9 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url) {
         try {
             const url = new URL(tab.url);
+            if (url.origin === 'https://flow.google.com') {
+                setTimeout(() => pushCookiesToServer(), 5000);
+            }
             if (url.hostname === 'labs.google') {
                 let account = url.searchParams.get('captcha_account');
                 if (!account && url.hash.startsWith('#captcha_account=')) {

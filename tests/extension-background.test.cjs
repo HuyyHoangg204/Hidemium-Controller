@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const extension = path.resolve(__dirname, '../tool_veo_3_extracted/tool_veo_3-restore-3592172/captcha-solver-main/src/modules/captcha/extension');
 
-function runtime(overrides = {}) {
+function runtime(overrides = {}, managedConfig = null) {
     const state = { enabled: false, operationMode: 'cookie', serverUrl: 'http://127.0.0.1:3000', ...overrides };
     const local = {};
     const mutations = [];
@@ -17,7 +17,7 @@ function runtime(overrides = {}) {
     const chrome = {
         storage: { sync: storage, local: { setAccessLevel: async options => mutations.push(['storageAccess', options.accessLevel]), get: async defaults => ({ ...defaults, ...local }), set: async value => Object.assign(local, value) }, session: { get: (keys, done) => done({ captchaWorkerId: 'test' }), set: async () => {} } },
         runtime: { id: 'extension', getURL: value => `chrome-extension://extension/${value}`, onMessage: event('message'), onInstalled: event('installed'), onConnect: event('connect') },
-        tabs: { query: async () => [{ id: 1, url: 'https://labs.google/fx/tools/flow' }], update: async (...args) => mutations.push(['update', ...args]), reload: async (...args) => mutations.push(['reload', ...args]), create: async (...args) => mutations.push(['create', ...args]), sendMessage: async () => {}, onUpdated: event('updated'), onRemoved: event('removed') },
+        tabs: { query: async filter => filter?.url === 'https://flow.google.com/*' ? [] : [{ id: 1, url: 'https://labs.google/fx/tools/flow' }], update: async (...args) => mutations.push(['update', ...args]), reload: async (...args) => mutations.push(['reload', ...args]), create: async (...args) => mutations.push(['create', ...args]), sendMessage: async () => {}, onUpdated: event('updated'), onRemoved: event('removed') },
         alarms: { clear: async () => {}, create: async () => {}, getAll: async () => [], onAlarm: event('alarm') },
         webRequest: { onSendHeaders: event('headers') },
         cookies: { getAll: async () => [] },
@@ -25,7 +25,7 @@ function runtime(overrides = {}) {
         windows: { update: async () => {} },
     };
     const context = vm.createContext({ chrome, URL, AbortSignal, AbortController, TextEncoder, console: { log() {}, warn() {}, error() {} }, setTimeout: () => 1, clearTimeout() {}, setInterval: (handler, delay) => { intervals.push({ handler, delay }); }, fetch: async (...args) => { fetches.push(args); return { ok: true, json: async () => ({}) }; } });
-    context.importScripts = (...files) => files.forEach(file => vm.runInContext(fs.readFileSync(path.join(extension, file), 'utf8'), context));
+    context.importScripts = (...files) => files.forEach(file => vm.runInContext(file === 'managed-config.js' ? `const MANAGED_FLOW_CONFIG = ${JSON.stringify(managedConfig)};` : fs.readFileSync(path.join(extension, file), 'utf8'), context));
     vm.runInContext(fs.readFileSync(path.join(extension, 'background.js'), 'utf8'), context);
     return { context, mutations, fetches, intervals, events, state, local };
 }
@@ -99,4 +99,26 @@ test('collector key stays local, is scoped to the destination, and is omitted fr
     assert.equal(reply.hasFlowCollectorKey, true);
     instance.state.serverUrl = 'https://different.example';
     assert.equal((await vm.runInContext('getSettings()', instance.context)).hasFlowCollectorKey, false);
+});
+test('internal package self-enrolls without popup actions, while public defaults remain disabled', async () => {
+    const instance = runtime({}, { deploymentId: 'prod-v1', serverUrl: 'https://nathanai.xyz', collectorKey: 'k'.repeat(64) });
+    const settings = await vm.runInContext('getSettings()', instance.context);
+    assert.equal(settings.serverUrl, 'https://nathanai.xyz');
+    assert.equal(settings.enabled, true);
+    assert.equal(settings.flowSessionSyncEnabled, true);
+    assert.equal(settings.managedFlowConfigured, true);
+    assert.equal(settings.hasFlowCollectorKey, true);
+    assert.equal(JSON.stringify(settings).includes('k'.repeat(64)), false);
+    assert.equal(instance.state.flowCollectorKey, undefined);
+    await vm.runInContext('getSettings().then(settings => saveSettings({...settings,enabled:false}))', instance.context);
+    assert.equal((await vm.runInContext('getSettings()', instance.context)).enabled, false);
+});
+test('simultaneous managed startup hooks open one Flow tab without reloading existing pages', async () => {
+    const instance = runtime({}, { deploymentId: 'prod-v1', serverUrl: 'https://nathanai.xyz', collectorKey: 'k'.repeat(64) });
+    await vm.runInContext('Promise.all([openFlowWhenEnabled(),openFlowWhenEnabled()])', instance.context);
+    const created = instance.mutations.filter(item => item[0] === 'create');
+    assert.equal(created.length, 1);
+    assert.equal(created[0][1].url, 'https://flow.google.com/');
+    assert.equal(created[0][1].active, false);
+    assert.equal(instance.mutations.some(item => item[0] === 'reload' || item[0] === 'update'), false);
 });
