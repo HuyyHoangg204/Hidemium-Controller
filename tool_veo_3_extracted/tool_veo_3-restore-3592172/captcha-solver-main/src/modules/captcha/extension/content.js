@@ -4,7 +4,9 @@
 // Toàn bộ captcha polling đã chuyển sang background.js Service Worker.
 // ===================================
 
-(function () {
+(async function () {
+    const settings = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }).catch(() => null);
+    if (!settings?.enabled || settings.operationMode !== 'captcha') return;
     const log = (m) => console.log(`[CaptchaExt] ${m}`);
 
     // ── Step 0: Giữ Service Worker SỐNG bằng persistent port ─────────────

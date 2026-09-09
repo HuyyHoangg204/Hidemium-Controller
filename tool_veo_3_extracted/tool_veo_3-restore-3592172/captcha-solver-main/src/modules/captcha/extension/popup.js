@@ -32,6 +32,7 @@ const logger = new Logger('PopupUI');
 
 const elements = {
     enabled: document.getElementById('enabled'),
+    flowSessionSyncEnabled: document.getElementById('flowSessionSyncEnabled'),
     autoReload: document.getElementById('autoReload'),
     reloadInterval: document.getElementById('reloadInterval'),
     clearGrecaptcha: document.getElementById('clearGrecaptcha'),
@@ -48,13 +49,14 @@ const elements = {
 // Load settings khi popup mở
 async function loadSettings() {
     const response = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
-    logger.log('Loaded settings', response);
+    if (response.success === false) throw new Error('Invalid settings');
     
     elements.enabled.checked = response.enabled;
+    elements.flowSessionSyncEnabled.checked = response.flowSessionSyncEnabled === true;
     elements.autoReload.checked = response.autoReload;
     elements.reloadInterval.value = response.reloadInterval;
     elements.clearGrecaptcha.checked = response.clearGrecaptcha ?? false;
-    elements.serverUrl.value = response.serverUrl || 'http://localhost:8080';
+    elements.serverUrl.value = response.serverUrl || 'http://127.0.0.1:3000';
     elements.operationMode.value = response.operationMode || 'cookie';
     
     updateUIState();
@@ -63,7 +65,7 @@ async function loadSettings() {
 // Save settings khi thay đổi (chỉ lưu, không reload)
 async function saveSettings() {
     let url = elements.serverUrl.value.trim();
-    if (!url) url = 'http://localhost:8080';
+    if (!url) url = 'http://127.0.0.1:3000';
     // Remove trailing slash if exists
     if (url.endsWith('/')) url = url.slice(0, -1);
     // Ensure starts with http
@@ -74,6 +76,7 @@ async function saveSettings() {
 
     const settings = {
         enabled: elements.enabled.checked,
+        flowSessionSyncEnabled: elements.flowSessionSyncEnabled.checked,
         autoReload: elements.autoReload.checked,
         reloadInterval: parseInt(elements.reloadInterval.value),
         clearGrecaptcha: elements.clearGrecaptcha.checked,
@@ -81,12 +84,12 @@ async function saveSettings() {
         operationMode: elements.operationMode.value
     };
     
-    await chrome.runtime.sendMessage({
+    const result = await chrome.runtime.sendMessage({
         type: 'SAVE_SETTINGS',
         settings: settings
     });
     
-    logger.success('Settings saved', settings);
+    if (!result?.success) throw new Error('Settings rejected');
 }
 
 // Save và reload page
@@ -110,6 +113,11 @@ async function saveAndReload() {
         
         // Reload all active tabs
         setTimeout(async () => {
+            if (elements.operationMode.value === 'cookie') {
+                button.innerHTML = originalHTML;
+                button.disabled = false;
+                return;
+            }
             const tabs = await chrome.tabs.query({ active: true });
             for (const tab of tabs) {
                 try {
@@ -244,3 +252,26 @@ elements.reloadInterval.addEventListener('keydown', (e) => {
 
 // Initialize
 loadSettings();
+
+const flowMessages = {
+    busy: 'Một lượt kiểm tra hoặc đồng bộ đang chạy. Hãy chờ kết quả.',
+    captured: 'Phiên Flow hợp lệ; chưa gửi cookie.', synced: 'Máy chủ đã nhận bộ phiên Flow v1.',
+    disabled: 'Bật extension, chọn Cookie mode và cho phép đồng bộ Flow rồi lưu.',
+    needs_flow_login: 'Mở Flow và đăng nhập đúng một tài khoản.',
+    session_changed: 'Phiên thay đổi trong lúc thu; chưa gửi. Hãy kiểm tra lại.',
+    receiver_unsupported: 'Máy chủ chưa hỗ trợ Flow v1; chưa gửi cookie.',
+    settings_changed: 'Đích nhận đã thay đổi; chưa gửi cookie.',
+    rejected: 'Máy chủ không xác nhận nhận phiên.', timeout: 'Hết thời gian kiểm tra hoặc đồng bộ.',
+    unavailable: 'Không thể thu bộ phiên hợp lệ. Kiểm tra đăng nhập và quyền extension.',
+};
+for (const [buttonId, type] of [['checkFlowSession', 'CHECK_FLOW_SESSION'], ['syncFlowSession', 'SYNC_FLOW_SESSION']]) {
+    document.getElementById(buttonId).addEventListener('click', async () => {
+        const status = document.getElementById('flowSessionStatus');
+        try {
+            const result = await chrome.runtime.sendMessage({ type });
+            status.textContent = flowMessages[result.state] || 'Không thể thực hiện yêu cầu.';
+        } catch (_) {
+            status.textContent = flowMessages.unavailable;
+        }
+    });
+}

@@ -405,6 +405,14 @@
                         </div>
                     </div>
 
+                    <div class="setting-item">
+                        <label><input type="checkbox" id="flowSessionSyncEnabled"> Đồng bộ phiên Google + Flow (v1)</label>
+                        <p>Chỉ bật cho máy chủ bạn tin cậy. Cookie Google là thông tin đăng nhập nhạy cảm, không chỉ riêng Flow. Máy chủ phải hỗ trợ flow-session-v1.</p>
+                    </div>
+                    <button class="btn" id="checkFlowSession">Kiểm tra phiên Flow, không gửi cookie</button>
+                    <button class="btn" id="syncFlowSession">Đồng bộ phiên Flow</button>
+                    <p id="flowSessionStatus" role="status"></p>
+
                     <div class="setting-item" id="autoReloadRow">
                         <div class="setting-label">
                             <span class="setting-icon">🔄</span>
