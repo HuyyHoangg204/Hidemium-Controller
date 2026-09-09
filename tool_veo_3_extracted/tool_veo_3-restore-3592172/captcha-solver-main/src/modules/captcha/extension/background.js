@@ -10,7 +10,7 @@ console.log('🔧 Background Script: Started');
 // Chúng ta intercepte để lấy giá trị thực, gửi về Python server.
 // ===================================
 
-const FIXED_API_SERVER = 'https://nathamedia.net/';
+const FIXED_API_SERVER = 'https://nathanai.xyz/';
 let API_SERVER = FIXED_API_SERVER;
 
 // Luôn ép extension chỉ trỏ về domain chính, không dùng serverUrl cũ trong storage.
@@ -89,7 +89,7 @@ const DEFAULT_SETTINGS = {
     reloadInterval: 5, // minutes
     enabled: true,
     clearGrecaptcha: false, // New setting
-    serverUrl: 'https://nathamedia.net/',
+    serverUrl: 'https://nathanai.xyz/',
     operationMode: 'cookie' // 'cookie' = chỉ gửi cookie (không giải captcha), 'captcha' = chỉ giải captcha (không gửi cookie)
 };
 

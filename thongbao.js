@@ -155,11 +155,7 @@ async function testAccount(account, index, total) {
             return { ...base, stage: 'session', session_status: session.status, email: session.email || '', expires: session.expires || '', error: session.error, response: session.response || '' };
         }
 
-        const credits = await verifyCredits(session.token);
-        if (!credits.ok) {
-            return { ...base, stage: 'credits', email: session.email || '', expires: session.expires || '', token_sha8: sha8(session.token), credits_status: credits.status, error: credits.error, response: credits.response || '' };
-        }
-
+        // Có access_token hợp lệ (ya29...) → OK luôn, không cần check credits
         return {
             ...base,
             ok: true,
@@ -167,8 +163,6 @@ async function testAccount(account, index, total) {
             email: session.email || '',
             expires: session.expires || '',
             token_sha8: sha8(session.token),
-            credits: credits.credits,
-            tier: credits.tier || '',
         };
     } catch (err) {
         return { ...base, stage: 'exception', error: `${err.name || 'Error'}: ${err.message || err}` };
@@ -260,7 +254,6 @@ const TELEGRAM_TOKEN   = process.env.TELEGRAM_TOKEN   || '8975004750:AAG3Eb-cAjG
 // Danh sach chat se gui thong bao (ca nhan + nhom)
 const TELEGRAM_TARGETS = (process.env.TELEGRAM_CHAT_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
 if (!TELEGRAM_TARGETS.length) {
-    TELEGRAM_TARGETS.push('1945468986');   // Ca nhan: Lo Cii
     TELEGRAM_TARGETS.push('-5295419189');  // Nhom: Luong Veo3
 }
 
@@ -321,9 +314,7 @@ async function sendTelegramSummary(summary, results) {
 
     const okLines = okItems.map((r) => {
         const email   = r.email   || r.account_name || '-';
-        const credits = r.credits != null ? `💰 ${r.credits}` : '';
-        const tier    = r.tier ? ` [${r.tier}]` : '';
-        return `✅ <code>${email}</code>${tier} ${credits}`;
+        return `✅ <code>${email}</code>`;
     });
 
     const failLines = failItems.map((r) => {
